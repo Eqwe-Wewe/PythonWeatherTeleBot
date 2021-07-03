@@ -6,8 +6,7 @@ import telebot
 
 bot = telebot.TeleBot(config.TOKEN)
 url = 'https://yandex.ru/pogoda/'
-html = requests.get(url)
-soup = BeautifulSoup(html.text, 'html.parser')
+url_region = 'https://yandex.ru/pogoda/region/'
 
 
 @bot.message_handler(commands=['start'])
@@ -40,23 +39,48 @@ def help(message):
 
 @bot.message_handler(commands=['current_weather'])
 def current_weather(message):
-    keyboard = telebot.types.InlineKeyboardMarkup()
-    keyboard.row(
-        telebot.types.InlineKeyboardButton('Обновить')
-    )
     bot.send_message(
         message.chat.id,
-        get_message())
+        get_message(),
+        reply_markup=button())
+
+
+@bot.callback_query_handler(func=lambda call: True)
+def weather_callback(query):
+    data = query.data
+    if data == 'update':
+        bot.answer_callback_query(query.id)
+        bot.send_chat_action(query.message.chat.id, 'typing')
+        bot.send_message(
+            query.message.chat.id,
+            get_message(),
+            reply_markup=button())
+
+
+def button():
+    keyboard = telebot.types.InlineKeyboardMarkup()
+    keyboard.add(
+        telebot.types.InlineKeyboardButton(
+            'Обновить',
+            callback_data='update'))
+    return keyboard
 
 
 def get_message():
-    weather_value = soup.findAll('div', class_="term__value")
-    weather_value = [i.get_text() for i in weather_value]
+    weather_value = parsing('div', "term__value")
     return (f'Текущая температура {"".join([weather_value[0], "C°"])},\n' +
             f'ощущается как {"".join([weather_value[1], "C°"])}\n' +
             f'ветер {weather_value[2]}\n' +
             f'влажность {weather_value[3]}\n' +
             f'давление {weather_value[4]}')
+
+
+def parsing(name: str, attrs: str):
+    html = requests.get(url)
+    soup = BeautifulSoup(html.text, 'html.parser')
+    value = soup.findAll(name, class_=attrs)
+    value = [i.get_text() for i in value]
+    return value
 
 
 @bot.message_handler(commands=['10_day_weather'])
@@ -67,10 +91,7 @@ def ten_day_weather(message):
 
 
 def get_message2():
-    ten_day = soup.findAll(
-        'div',
-        class_='forecast-briefly__day swiper-slide')
-    ten_day = [i.get_text() for i in ten_day]
+    ten_day = parsing('div', 'forecast-briefly__day swiper-slide')
     return (f'{ten_day[0]}\n' +
             f'{ten_day[1]}\n' +
             f'{ten_day[2]}\n' +
@@ -83,20 +104,11 @@ def location_selection(message):
 
 
 def get_location():
-    url = 'https://yandex.ru/pogoda/region/'
-    html = requests.get(url)
+    html = requests.get(url_region)
     soup = BeautifulSoup(html.text, 'html.parser')
     place_list = soup.findAll('div', class_="place-list")
     place_list = [i.get_text() for i in place_list]
     return place_list
-
-
-def refresh():
-    keyboard = telebot.types.InlineKeyboardMarkup()
-    keyboard.row(
-            telebot.types.InlineKeyboardButton(
-                    'Обновить данные',
-                    current_weather()))
 
 
 bot.polling(none_stop=True)
