@@ -23,18 +23,16 @@ def welcome(message):
 
 @bot.message_handler(commands=['help'])
 def help(message):
-    keyboard = telebot.types.InlineKeyboardMarkup()
-    keyboard.add(telebot.types.InlineKeyboardButton(
-        'Связаться с разработчиком',
-        url='telegram.me/developer'))
     bot.send_message(
         message.chat.id,
         '1) Посмотреть данные о погоде на текущий момент /current_weather.\n' +
         '2) Посмотреть прогноз погоды на 10 дней /10_day_weather.\n' +
         '3) Нажми «Обновить», чтобы получить обновленную информацию о' +
-        ' текущей погоде.\n' +
+        ' погоде.\n' +
         '4) Для смены региона в прогнозе погоды /location_selection.\n',
-        reply_markup=keyboard)
+        reply_markup=button(
+            text='Связаться с разработчиком',
+            url='telegram.me/developer'))
 
 
 @bot.message_handler(commands=['current_weather'])
@@ -42,7 +40,9 @@ def current_weather(message):
     bot.send_message(
         message.chat.id,
         get_message(),
-        reply_markup=button())
+        reply_markup=button(
+            text='Обновить',
+            callback_data='update'))
 
 
 @bot.callback_query_handler(func=lambda call: True)
@@ -54,15 +54,18 @@ def weather_callback(query):
         bot.send_message(
             query.message.chat.id,
             get_message(),
-            reply_markup=button())
+            reply_markup=button(
+                text='Обновить',
+                callback_data='update'))
 
 
-def button():
+def button(text: str, url: str = None, callback_data: str = None):
     keyboard = telebot.types.InlineKeyboardMarkup()
     keyboard.add(
         telebot.types.InlineKeyboardButton(
-            'Обновить',
-            callback_data='update'))
+            text,
+            url,
+            callback_data))
     return keyboard
 
 
@@ -87,10 +90,11 @@ def parsing(name: str, attrs: str):
 def ten_day_weather(message):
     bot.send_message(
         message.chat.id,
-        get_message2())
+        get_message_10_day(),
+        reply_markup=button(text='Обновить', callback_data='update'))
 
 
-def get_message2():
+def get_message_10_day():
     ten_day = parsing('div', 'forecast-briefly__day swiper-slide')
     return (f'{ten_day[0]}\n' +
             f'{ten_day[1]}\n' +
