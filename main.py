@@ -136,17 +136,16 @@ def location_selection(message):
     keyboard = telebot.types.InlineKeyboardMarkup(row_width=4)
     lst = [telebot.types.InlineKeyboardButton(
             alphabet[btn],
-            callback_data='set_region')
+            callback_data=f'set_region_{alphabet[btn]}')
            for btn in range(len(alphabet))]
-    print(lst[0].callback_data)
-    print(lst[0].__str__())
     keyboard.add(*lst)
     bot.send_message(
         message.chat.id,
-        'Выберите первую букву региона',
+        'Выберите первый символ из названия',
         reply_markup=keyboard)
 
 
+# do dry
 @bot.callback_query_handler(func=lambda call: True)
 def weather_callback(query):
     data = query.data
@@ -167,27 +166,32 @@ def weather_callback(query):
                 text='Обновить',
                 callback_data='update_10_days'))
     elif data.startswith('set_region'):
+        regions = set_region(query.data[-1])
+        keyboard = telebot.types.InlineKeyboardMarkup()
+        lst = [telebot.types.InlineKeyboardButton(
+            regions[region][0],
+            callback_data=f'set_city|{regions[region][1]}')
+               for region in range(len(regions))]
+        keyboard.add(*lst)
         bot.send_message(
             query.message.chat.id,
             'Выберите регион',
-            # set_region(),
-            reply_markup=button(
-                text='pass',
-                callback_data='set_city'))
-    elif data == 'set_city':
+            reply_markup=keyboard)
+    elif data.startswith('set_city'):
+        url_region = query.data.split('|')[1]
         bot.send_message(
             query.message.chat.id,
             get_message_10_days(),
             reply_markup=button(
                 text='Выберите город',
-                callback_data='set_city'))
-    elif data == 'set_city':
-        pass
+                callback_data='keyboard'))
 
 
 def set_region(letter):
-    # regions = get_location()
-    pass
+    regions = get_location()
+    regions = [(region, regions[region]) for region in regions.keys()
+               if region.startswith(letter)]
+    return regions
 
 
 def get_location():
