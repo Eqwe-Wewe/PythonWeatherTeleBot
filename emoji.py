@@ -1,5 +1,6 @@
 sun_behind_small_cloud = '🌤'
 cloud = '☁'
+crescent_moon = '🌙'
 sun = '☀' 
 sun_behind_cloud = '⛅'
 cloud_with_lightning_and_rain = '⛈'
