@@ -337,4 +337,27 @@ def button(text: str, url: str = None, callback_data: str = None):
     return keyboard
 
 
-bot.polling(none_stop=True)
+@bot.inline_handler(func=lambda query: True)
+def inline_mode(inline_query):
+    current = telebot.types.InlineQueryResultArticle(
+        '1',
+        'Погода сейчас',
+        telebot.types.InputTextMessageContent(set_message(Var.url)))
+    ten_day = telebot.types.InlineQueryResultArticle(
+        '2',
+        'Прогноз на 10 дней',
+        telebot.types.InputTextMessageContent(set_message_10_days(Var.url)))
+    bot.answer_inline_query(
+        inline_query.id,
+        [current, ten_day])
+
+
+def main():
+    bot.polling(none_stop=True)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception as err:
+        print(f'error: {err}')
