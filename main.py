@@ -52,6 +52,8 @@ def help(message):
         '4) Для смены региона в прогнозе погоды /location_selection.\n',
         reply_markup=button(
             text='Связаться с разработчиком',
+
+            # по желанию добавьте свою учетную запись
             url='telegram.me/yourrandomdeveloper'))
 
 
@@ -212,11 +214,12 @@ def set_message(url):
         'div',
         'link__condition day-anchor i-bem',
         url)
+    hour = int((time[0].strip(". ").split(' ')[1].split(':')[0]))
     return (f'{sub_reg[0]}\n' +
             f'{time[0].strip(". ")}(МСК{time_zone()})\n' +
             f'текущая температура {"".join([weather_value[0], "°"])}\n' +
             f'ощущается как {"".join([weather_value[1], "°"])}\n' +
-            f'{condition[0]} {get_emoji(condition[0])}\n' +
+            f'{condition[0]} {get_emoji(condition[0], hour)}\n' +
             f'{dashing_away} {weather_value[2]}\n' +
             f'{droplet} {weather_value[3]} ' +
             f'{barometer} {weather_value[4]}')
@@ -339,27 +342,39 @@ def button(text: str, url: str = None, callback_data: str = None):
     return keyboard
 
 
-def get_emoji(value):
+def get_emoji(value, hour=None):
     icon = ''
-    if value.lower() == 'малооблачно':
-        icon = sun_behind_small_cloud
-    elif value.lower() == 'облачно с прояснениями':
-        icon = sun_behind_cloud
-    elif value.lower() in ('небольшой дождь', 'дождь'):
+    value = value.lower()
+    if hour is not None:
+
+        # яндекс считает ночным временем с 0 ч. по 6 ч.
+        if hour < 6:
+            print('tut')
+            if value in ('малооблачно', 'облачно с прояснениями'):
+                print('tuta')
+                icon = crescent_moon + cloud
+            elif value == 'ясно':
+                icon = crescent_moon
+    else:
+        if value == 'малооблачно':
+            icon = sun_behind_small_cloud
+        elif value == 'ясно':
+            icon = sun
+        elif value == 'облачно с прояснениями':
+            icon = sun_behind_cloud
+    if value in ('небольшой дождь', 'дождь'):
         icon = cloud_with_rain
-    elif value.lower() == 'пасмурно':
+    elif value == 'пасмурно':
         icon = cloud
-    elif value.lower() == 'ясно':
-        icon = sun
-    elif value.lower() == 'ураган':
+    elif value == 'ураган':
         icon = tornado
-    elif value.lower() == 'туман':
+    elif value == 'туман':
         icon = fog
-    elif value.lower() in ('небольшой снег', 'снег'):
+    elif value in ('небольшой снег', 'снег'):
         icon = cloud_with_snow
-    elif value.lower() == 'гроза':
+    elif value == 'гроза':
         icon = cloud_with_lightning
-    elif value.lower() == 'снег с дождем':
+    elif value == 'снег с дождем':
         icon = snowflake + cloud_with_rain
     return icon
 
