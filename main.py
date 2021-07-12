@@ -2,6 +2,7 @@ import config
 import requests
 from bs4 import BeautifulSoup
 import telebot
+from emoji import *
 
 
 class Var():
@@ -132,7 +133,7 @@ def location_query(query):
         lst = [telebot.types.InlineKeyboardButton(
             regions[region][0],
             callback_data=f'set_sub_reg{query.data[-1]}|{regions[region][1]}')
-               for region in range(len(regions))]
+            for region in range(len(regions))]
         keyboard.add(*lst)
         keyboard.add(
             telebot.types.InlineKeyboardButton(
@@ -163,7 +164,7 @@ def location_query(query):
         lst = [telebot.types.InlineKeyboardButton(
             Var.regions[region][0],
             callback_data=f'current|{Var.regions[region][0][:12]}')
-               for region in range(len(Var.regions))]
+            for region in range(len(Var.regions))]
         keyboard.add(*lst)
         keyboard.add(
             telebot.types.InlineKeyboardButton(
@@ -212,13 +213,13 @@ def set_message(url):
         'link__condition day-anchor i-bem',
         url)
     return (f'{sub_reg[0]}\n' +
-            f'{time[0].strip(". ")} по местному времени(МСК{time_zone()})\n' +
-            f'текущая температура {"".join([weather_value[0], "C°"])}\n' +
-            f'ощущается как {"".join([weather_value[1], "C°"])}\n' +
-            f'{condition[0].lower()}\n' +
-            f'ветер {weather_value[2]}\n' +
-            f'влажность {weather_value[3]}\n' +
-            f'давление {weather_value[4]}')
+            f'{time[0].strip(". ")}(МСК{time_zone()})\n' +
+            f'текущая температура {"".join([weather_value[0], "°"])}\n' +
+            f'ощущается как {"".join([weather_value[1], "°"])}\n' +
+            f'{condition[0]} {get_emoji(condition[0])}\n' +
+            f'{dashing_away} {weather_value[2]}\n' +
+            f'{droplet} {weather_value[3]} ' +
+            f'{barometer} {weather_value[4]}')
 
 
 def set_message_10_days(url):
@@ -246,11 +247,12 @@ def set_message_10_days(url):
         'div',
         'forecast-briefly__condition',
         url)
-    mes = [', '.join([ten_day[i],
-                      time[i],
-                      t_day[i],
-                      t_night[i],
-                      condition[i]])
+    mes = [' '.join([ten_day[i],
+                     time[i],
+                     ('\n' + t_day[i] + '°'),
+                     (', ' + t_night[i] + '°')])
+           + f'\n {condition[i]}'
+           + f' {get_emoji(condition[i].lower())}'
            + '\n\n'
            for i in range(2, 12)]
     return (sub_reg[0]
@@ -272,9 +274,9 @@ def alphabet(url, choosing_region):
 def keyboard_rows(data, choosing_region):
     keyboard = telebot.types.InlineKeyboardMarkup(row_width=4)
     lst = [telebot.types.InlineKeyboardButton(
-            data[btn],
-            callback_data=f'{choosing_region + data[btn]}')
-           for btn in range(len(data))]
+        data[btn],
+        callback_data=f'{choosing_region + data[btn]}')
+        for btn in range(len(data))]
     keyboard.add(*lst)
     return keyboard
 
@@ -335,6 +337,31 @@ def button(text: str, url: str = None, callback_data: str = None):
             url,
             callback_data))
     return keyboard
+
+
+def get_emoji(value):
+    icon = ''
+    if value.lower() == 'малооблачно':
+        icon = sun_behind_small_cloud
+    elif value.lower() == 'облачно с прояснениями':
+        icon = sun_behind_cloud
+    elif value.lower() in ('небольшой дождь', 'дождь'):
+        icon = cloud_with_rain
+    elif value.lower() == 'пасмурно':
+        icon = cloud
+    elif value.lower() == 'ясно':
+        icon = sun
+    elif value.lower() == 'ураган':
+        icon = tornado
+    elif value.lower() == 'туман':
+        icon = fog
+    elif value.lower() in ('небольшой снег', 'снег'):
+        icon = cloud_with_snow
+    elif value.lower() == 'гроза':
+        icon = cloud_with_lightning
+    elif value.lower() == 'снег с дождем':
+        icon = snowflake + cloud_with_rain
+    return icon
 
 
 @bot.inline_handler(func=lambda query: True)
