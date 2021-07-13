@@ -219,8 +219,9 @@ def set_message(url):
             f'{time[0].strip(". ")}(МСК{time_zone()})\n' +
             f'текущая температура {"".join([weather_value[0], "°"])}\n' +
             f'ощущается как {"".join([weather_value[1], "°"])}\n' +
-            f'{condition[0]} {get_emoji(condition[0], hour)}\n' +
-            f'{dashing_away} {weather_value[2]}\n' +
+            f'{condition[0]} {get_weather_emoji(condition[0], hour)}\n' +
+            f'{dashing_away} {weather_value[2]}' +
+            f'{get_wind_dir_emoji(weather_value[2].split("м/с, ")[1])}\n' +
             f'{droplet} {weather_value[3]} ' +
             f'{barometer} {weather_value[4]}')
 
@@ -255,7 +256,7 @@ def set_message_10_days(url):
                      ('\n' + t_day[i] + '°'),
                      (', ' + t_night[i] + '°')])
            + f'\n {condition[i]}'
-           + f' {get_emoji(condition[i].lower())}'
+           + f' {get_weather_emoji(condition[i].lower())}'
            + '\n\n'
            for i in range(2, 12)]
     return (sub_reg[0]
@@ -342,41 +343,23 @@ def button(text: str, url: str = None, callback_data: str = None):
     return keyboard
 
 
-def get_emoji(value, hour=None):
-    icon = ''
+def get_weather_emoji(value, hour=None):
     value = value.lower()
-    if hour is not None:
+    try:
+        if hour is not None:
 
-        # яндекс считает ночным временем с 0 ч. по 6 ч.
-        if hour < 6:
-            print('tut')
-            if value in ('малооблачно', 'облачно с прояснениями'):
-                print('tuta')
-                icon = crescent_moon + cloud
-            elif value == 'ясно':
-                icon = crescent_moon
-    else:
-        if value == 'малооблачно':
-            icon = sun_behind_small_cloud
-        elif value == 'ясно':
-            icon = sun
-        elif value == 'облачно с прояснениями':
-            icon = sun_behind_cloud
-    if value in ('небольшой дождь', 'дождь'):
-        icon = cloud_with_rain
-    elif value == 'пасмурно':
-        icon = cloud
-    elif value == 'ураган':
-        icon = tornado
-    elif value == 'туман':
-        icon = fog
-    elif value in ('небольшой снег', 'снег'):
-        icon = cloud_with_snow
-    elif value == 'гроза':
-        icon = cloud_with_lightning
-    elif value == 'снег с дождем':
-        icon = snowflake + cloud_with_rain
-    return icon
+            # яндекс считает ночным временем с 0 ч. по 6 ч.
+            if hour < 6:
+                return weather_conditions_night[value]
+        return weather_conditions[value]
+    except KeyError as err:
+        with open('report.txt', 'a') as file:
+            print(f'KeyError get_weather_emoji: {err}', file=file)
+        return ''
+
+
+def get_wind_dir_emoji(value):
+    return wind_dir[value]
 
 
 @bot.inline_handler(func=lambda query: True)
