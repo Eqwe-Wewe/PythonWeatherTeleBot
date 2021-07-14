@@ -6,31 +6,36 @@ from emoji import *
 
 
 class Var():
-    # заглавная страница сервиса Яндекс.Погода с прогнозом по текущему месту
-    # положения
-    url = 'https://yandex.ru/pogoda/'
+    def __init__(self):
 
-    # список регионов России
-    url_regions = 'https://yandex.ru/pogoda/region/225?via=reg'
+        # заглавная страница сервиса Яндекс.Погода с прогнозом
+        # по текущему месту положения
+        self.url = 'https://yandex.ru/pogoda/'
 
-    # ссылка на конкретный регион
-    url_region = None
+        # список регионов России
+        self.url_regions = 'https://yandex.ru/pogoda/region/225?via=reg'
 
-    # первая буква из названия региона
-    btn = None
+        # ссылка на конкретный регион
+        self.url_region = None
 
-    # первая буква из субъекта региона
-    btn_sub_reg = None
+        # первая буква из названия региона
+        self.btn = None
 
-    # список регионов или их субъектов
-    regions = None
+        # первая буква из субъекта региона
+        self.btn_sub_reg = None
+
+        # список регионов или их субъектов
+        self.regions = None
 
 
+users_property = {}
 bot = telebot.TeleBot(config.TOKEN)
 
 
 @bot.message_handler(commands=['start'])
 def welcome(message):
+    user = Var()
+    users_property[message.chat.id] = user
     bot.send_message(
         message.chat.id,
         'Привет! Я помогу тебе узнать прогноз погоды.\n' +
@@ -62,7 +67,7 @@ def current_weather(message):
     bot.send_chat_action(message.chat.id, 'typing')
     bot.send_message(
         message.chat.id,
-        set_message(Var.url),
+        set_message(users_property[message.chat.id].url),
         reply_markup=button(
             text='Обновить',
             callback_data='update_current'))
@@ -73,7 +78,7 @@ def ten_day_weather(message):
     bot.send_chat_action(message.chat.id, 'typing')
     bot.send_message(
         message.chat.id,
-        set_message_10_days(Var.url),
+        set_message_10_days(users_property[message.chat.id].url),
         reply_markup=button(
             text='Обновить',
             callback_data='update_10_days'))
@@ -82,7 +87,9 @@ def ten_day_weather(message):
 @bot.message_handler(commands=['location_selection'])
 def location_selection(message):
     bot.send_chat_action(message.chat.id, 'typing')
-    keyboard = alphabet(Var.url_regions, 'set_region_')
+    keyboard = alphabet(
+        users_property[message.chat.id].url_regions,
+        'set_region_')
     bot.send_message(
         message.chat.id,
         'Выберите первый символ из названия региона РФ',
@@ -91,12 +98,13 @@ def location_selection(message):
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('update'))
 def weather_callback(query):
+    user = users_property[query.message.chat.id]
     data = query.data
     bot.answer_callback_query(query.id)
     bot.send_chat_action(query.message.chat.id, 'typing')
     if data == 'update_current':
         bot.edit_message_text(
-            set_message(Var.url),
+            set_message(user.url),
             query.message.chat.id,
             query.message.message_id)
         bot.edit_message_reply_markup(
@@ -107,7 +115,7 @@ def weather_callback(query):
                 callback_data='update_current'))
     elif data == 'update_10_days':
         bot.edit_message_text(
-            set_message_10_days(Var.url),
+            set_message_10_days(user.url),
             query.message.chat.id,
             query.message.message_id)
         bot.edit_message_reply_markup(
@@ -120,17 +128,18 @@ def weather_callback(query):
 
 @bot.callback_query_handler(func=lambda call: True)
 def location_query(query):
+    user = users_property[query.message.chat.id]
     data = query.data
     bot.answer_callback_query(query.id)
     bot.send_chat_action(query.message.chat.id, 'typing')
     if data == 'set_location_back':
-        keyboard = alphabet(Var.url_regions, 'set_region_')
+        keyboard = alphabet(user.url_regions, 'set_region_')
         bot.edit_message_text(
             'Выберите первый символ из названия региона РФ',
             query.message.chat.id,
             query.message.message_id)
     elif data.startswith('set_region'):
-        regions = set_region(query.data[-1], Var.url_regions)
+        regions = set_region(query.data[-1], user.url_regions)
         keyboard = telebot.types.InlineKeyboardMarkup(2)
         lst = [telebot.types.InlineKeyboardButton(
             regions[region][0],
@@ -147,26 +156,26 @@ def location_query(query):
             query.message.message_id)
     elif data.startswith('set_sub_reg') or data == 'set_sub_reg_back':
         if data != 'set_sub_reg_back':
-            btn, Var.url_region = query.data.split('|')
-            Var.btn = btn[-1]
-        keyboard = alphabet(Var.url_region, 'main_sub_reg')
+            btn, user.url_region = query.data.split('|')
+            user.btn = btn[-1]
+        keyboard = alphabet(user.url_region, 'main_sub_reg')
         keyboard.add(
             telebot.types.InlineKeyboardButton(
                 '<<Назад',
-                callback_data=f'set_region{Var.btn}'))
+                callback_data=f'set_region{user.btn}'))
         bot.edit_message_text(
             'Выберите первый символ из названия субъекта региона',
             query.message.chat.id,
             query.message.message_id)
     elif data.startswith('main_sub_reg'):
         if query.data != 'main_sub_reg_back':
-            Var.btn_sub_reg = query.data[-1]
-        Var.regions = set_region(Var.btn_sub_reg, Var.url_region)
+            user.btn_sub_reg = query.data[-1]
+        user.regions = set_region(user.btn_sub_reg, user.url_region)
         keyboard = telebot.types.InlineKeyboardMarkup(2)
         lst = [telebot.types.InlineKeyboardButton(
-            Var.regions[region][0],
-            callback_data=f'current|{Var.regions[region][0][:12]}')
-            for region in range(len(Var.regions))]
+            user.regions[region][0],
+            callback_data=f'current|{user.regions[region][0][:12]}')
+            for region in range(len(user.regions))]
         keyboard.add(*lst)
         keyboard.add(
             telebot.types.InlineKeyboardButton(
@@ -178,10 +187,10 @@ def location_query(query):
             query.message.message_id)
     elif data.startswith('current'):
         key = query.data.split("|")[1]
-        regions = dict(Var.regions)
+        regions = dict(user.regions)
         sub_reg = [(region, regions[region]) for region in regions.keys()
                    if region.startswith(key)]
-        Var.url = sub_reg[0][1]
+        user.url = sub_reg[0][1]
         keyboard = telebot.types.InlineKeyboardMarkup()
         keyboard.row(
             telebot.types.InlineKeyboardButton(
@@ -216,7 +225,7 @@ def set_message(url):
         url)
     hour = int((time[0].strip(". ").split(' ')[1].split(':')[0]))
     return (f'{sub_reg[0]}\n' +
-            f'{time[0].strip(". ")}(МСК{time_zone()})\n' +
+            f'{time[0].strip(". ")}(МСК{time_zone(url)})\n' +
             f'текущая температура {"".join([weather_value[0], "°"])}\n' +
             f'ощущается как {"".join([weather_value[1], "°"])}\n' +
             f'{condition[0]} {get_weather_emoji(condition[0], hour)}\n' +
@@ -285,7 +294,7 @@ def keyboard_rows(data, choosing_region):
     return keyboard
 
 
-def set_region(letter, url=Var.url_regions):
+def set_region(letter, url):
     regions = get_location(url)
     regions = [(region, regions[region]) for region in regions.keys()
                if region.startswith(letter)]
@@ -304,24 +313,24 @@ def get_location(url):
     return regions
 
 
-def parsing(name: str, attrs: str, url: str = Var.url_regions):
+def parsing(name: str, attrs: str, url: str):
     value = scraping(name, attrs, url)
     value = [i.get_text() for i in value]
     return value
 
 
-def scraping(name: str, attrs: str, url: str = Var.url_regions):
+def scraping(name: str, attrs: str, url: str):
     html = requests.get(url)
     soup = BeautifulSoup(html.text, 'html.parser')
     value = soup.findAll(name, class_=attrs)
     return value
 
 
-def time_zone():
+def time_zone(url):
     value = scraping(
         'time',
         'time fact__time',
-        Var.url)
+        url)
     tz = [i.get('datetime') for i in value]
     tz = int(tz[0].split('+')[1][:2]) - 3
     if tz > 0:
@@ -367,11 +376,11 @@ def inline_mode(inline_query):
     current = telebot.types.InlineQueryResultArticle(
         '1',
         'Погода сейчас',
-        telebot.types.InputTextMessageContent(set_message(Var.url)))
+        telebot.types.InputTextMessageContent(set_message(user.url)))
     ten_day = telebot.types.InlineQueryResultArticle(
         '2',
         'Прогноз на 10 дней',
-        telebot.types.InputTextMessageContent(set_message_10_days(Var.url)))
+        telebot.types.InputTextMessageContent(set_message_10_days(user.url)))
     bot.answer_inline_query(
         inline_query.id,
         [current, ten_day])
