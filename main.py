@@ -1,5 +1,6 @@
 import config
 import requests
+from datetime import datetime
 from bs4 import BeautifulSoup
 import telebot
 from emoji import *
@@ -58,8 +59,8 @@ def help(message):
         reply_markup=button(
             text='Связаться с разработчиком',
 
-            # по желанию добавьте свою учетную запись
-            url='telegram.me/yourrandomdeveloper'))
+            # по желанию добавьте учетную запись
+            url='telegram.me/<yourrandomdeveloper>'))
 
 
 @bot.message_handler(commands=['current_weather'])
@@ -74,7 +75,7 @@ def current_weather(message):
 
 
 @bot.message_handler(commands=['10_day_weather'])
-def ten_day_weather(message):
+def ten_days_weather(message):
     bot.send_chat_action(message.chat.id, 'typing')
     bot.send_message(
         message.chat.id,
@@ -98,32 +99,58 @@ def location_selection(message):
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('update'))
 def weather_callback(query):
-    user = users_property[query.message.chat.id]
     data = query.data
     bot.answer_callback_query(query.id)
-    bot.send_chat_action(query.message.chat.id, 'typing')
-    if data == 'update_current':
-        bot.edit_message_text(
-            set_message(user.url),
-            query.message.chat.id,
-            query.message.message_id)
-        bot.edit_message_reply_markup(
-            query.message.chat.id,
-            query.message.message_id,
-            reply_markup=button(
-                text='Обновить',
-                callback_data='update_current'))
-    elif data == 'update_10_days':
-        bot.edit_message_text(
-            set_message_10_days(user.url),
-            query.message.chat.id,
-            query.message.message_id)
-        bot.edit_message_reply_markup(
-            query.message.chat.id,
-            query.message.message_id,
-            reply_markup=button(
-                text='Обновить',
-                callback_data='update_10_days'))
+    if query.message:
+        bot.send_chat_action(query.message.chat.id, 'typing')
+        user = users_property[query.message.chat.id]
+        if data == 'update_current':
+            bot.edit_message_text(
+                set_message(user.url, True),
+                query.message.chat.id,
+                query.message.message_id,
+                parse_mode='HTML')
+            bot.edit_message_reply_markup(
+                query.message.chat.id,
+                query.message.message_id,
+                reply_markup=button(
+                    text='Обновить',
+                    callback_data='update_current'))
+        elif data == 'update_10_days':
+            bot.edit_message_text(
+                set_message_10_days(user.url, True),
+                query.message.chat.id,
+                query.message.message_id,
+                parse_mode='HTML')
+            bot.edit_message_reply_markup(
+                query.message.chat.id,
+                query.message.message_id,
+                reply_markup=button(
+                    text='Обновить',
+                    callback_data='update_10_days'))
+    elif query.inline_message_id:
+        bot.send_chat_action(query.from_user.id, 'typing')
+        user = users_property[query.from_user.id]
+        if data == 'update_current':
+            bot.edit_message_text(
+                set_message(user.url, True),
+                inline_message_id=query.inline_message_id,
+                parse_mode='HTML')
+            bot.edit_message_reply_markup(
+                inline_message_id=query.inline_message_id,
+                reply_markup=button(
+                    text='Обновить',
+                    callback_data='update_current'))
+        elif data == 'update_10_days':
+            bot.edit_message_text(
+                set_message_10_days(user.url, True),
+                inline_message_id=query.inline_message_id,
+                parse_mode='HTML')
+            bot.edit_message_reply_markup(
+                inline_message_id=query.inline_message_id,
+                reply_markup=button(
+                    text='Обновить',
+                    callback_data='update_10_days'))
 
 
 @bot.callback_query_handler(func=lambda call: True)
@@ -131,7 +158,6 @@ def location_query(query):
     user = users_property[query.message.chat.id]
     data = query.data
     bot.answer_callback_query(query.id)
-    bot.send_chat_action(query.message.chat.id, 'typing')
     if data == 'set_location_back':
         keyboard = alphabet(user.url_regions, 'set_region_')
         bot.edit_message_text(
@@ -206,7 +232,7 @@ def location_query(query):
         reply_markup=keyboard)
 
 
-def set_message(url):
+def set_message(url, change: bool = False):
     sub_reg = parsing(
         'h1',
         'title title_level_1 header-title__title',
@@ -224,7 +250,12 @@ def set_message(url):
         'link__condition day-anchor i-bem',
         url)
     hour = int((time[0].strip(". ").split(' ')[1].split(':')[0]))
+    if change is True:
+        update = '<i>(Обновлено)</i>\n'
+    else:
+        update = ''
     return (f'{sub_reg[0]}\n' +
+            f'{update}\n' +
             f'{time[0].strip(". ")}(МСК{time_zone(url)})\n' +
             f'текущая температура {"".join([weather_value[0], "°"])}\n' +
             f'ощущается как {"".join([weather_value[1], "°"])}\n' +
@@ -235,7 +266,7 @@ def set_message(url):
             f'{barometer} {weather_value[4]}')
 
 
-def set_message_10_days(url):
+def set_message_10_days(url, change: bool = False):
     sub_reg = parsing(
         'h1',
         'title title_level_1 header-title__title',
@@ -260,6 +291,10 @@ def set_message_10_days(url):
         'div',
         'forecast-briefly__condition',
         url)
+    if change is True:
+        update = '<i>(Обновлено)</i>\n'
+    else:
+        update = ''
     mes = [' '.join([ten_day[i],
                      time[i],
                      ('\n' + t_day[i] + '°'),
@@ -269,9 +304,8 @@ def set_message_10_days(url):
            + '\n\n'
            for i in range(2, 12)]
     return (sub_reg[0]
-            + '\n'
-            + 'Прогноз на 10 дней'
-            + '\n\n'
+            + '\nПрогноз на 10 дней\n'
+            + f'{update}\n'
             + ''.join(mes))
 
 
@@ -362,7 +396,7 @@ def get_weather_emoji(value, hour=None):
                 return weather_conditions_night[value]
         return weather_conditions[value]
     except KeyError as err:
-        with open('report.txt', 'a') as file:
+        with open('report_emoji.txt', 'a') as file:
             print(f'KeyError get_weather_emoji: {err}', file=file)
         return ''
 
@@ -373,14 +407,27 @@ def get_wind_dir_emoji(value):
 
 @bot.inline_handler(func=lambda query: True)
 def inline_mode(inline_query):
+    user = users_property[inline_query.from_user.id]
     current = telebot.types.InlineQueryResultArticle(
         '1',
         'Погода сейчас',
-        telebot.types.InputTextMessageContent(set_message(user.url)))
+        telebot.types.InputTextMessageContent(set_message(user.url)),
+        reply_markup=button(
+            text='Обновить',
+            callback_data='update_current'),
+        thumb_url=('https://www.clipartkey.com/mpngs/m/273-2739384_weather' +
+                   '-icon-heart.png'))
     ten_day = telebot.types.InlineQueryResultArticle(
         '2',
         'Прогноз на 10 дней',
-        telebot.types.InputTextMessageContent(set_message_10_days(user.url)))
+        telebot.types.InputTextMessageContent(set_message_10_days(user.url)),
+        reply_markup=button(
+            text='Обновить',
+            callback_data='update_10_days'),
+        thumb_url=('https://unblast.com/wp-content/uploads/2020/05/Weather-' +
+                   'Vector-Icons-1536x1152.jpg'),
+        thumb_width=400,
+        thumb_height=400)
     bot.answer_inline_query(
         inline_query.id,
         [current, ten_day])
@@ -394,4 +441,7 @@ if __name__ == '__main__':
     try:
         main()
     except Exception as err:
-        print(f'error: {err}')
+        dt = datetime.now()
+        dt = dt.strftime('%H:%M - %m.%d.%Y')
+        with open('report.txt', 'a') as file:
+            print(f'error: {err}, {dt}', file=file)
