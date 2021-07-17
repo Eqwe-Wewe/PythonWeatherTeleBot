@@ -9,4 +9,5 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.ui
-config.py
+config_tb.py
+config_db.py
