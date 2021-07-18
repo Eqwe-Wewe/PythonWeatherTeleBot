@@ -1,6 +1,6 @@
 -- таблица для кеширования запросов пользователей
 
-CREATE TABLE users_property(
+CREATE TABLE IF NOT EXISTS users_property(
 chat_id INT UNIQUE,
 url VARCHAR(200),
 url_regions VARCHAR(200),
