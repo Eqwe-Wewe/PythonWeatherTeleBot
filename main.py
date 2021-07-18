@@ -1,4 +1,4 @@
-import config
+import config_tb
 import requests
 from datetime import datetime
 from bs4 import BeautifulSoup
@@ -30,7 +30,7 @@ class Var():
 
 
 users_property = {}
-bot = telebot.TeleBot(config.TOKEN)
+bot = telebot.TeleBot(config_tb.TOKEN)
 
 
 @bot.message_handler(commands=['start'])
@@ -71,7 +71,8 @@ def current_weather(message):
         set_message(users_property[message.chat.id].url),
         reply_markup=button(
             text='Обновить',
-            callback_data='update_current'))
+            callback_data='update_current',
+            switch_inline_query='Current'))
 
 
 @bot.message_handler(commands=['10_day_weather'])
@@ -82,7 +83,8 @@ def ten_days_weather(message):
         set_message_10_days(users_property[message.chat.id].url),
         reply_markup=button(
             text='Обновить',
-            callback_data='update_10_days'))
+            callback_data='update_10_days',
+            switch_inline_query='Ten days'))
 
 
 @bot.message_handler(commands=['location_selection'])
@@ -115,7 +117,8 @@ def weather_callback(query):
                 query.message.message_id,
                 reply_markup=button(
                     text='Обновить',
-                    callback_data='update_current'))
+                    callback_data='update_current',
+                    switch_inline_query='Current'))
         elif data == 'update_10_days':
             bot.edit_message_text(
                 set_message_10_days(user.url, True),
@@ -127,7 +130,8 @@ def weather_callback(query):
                 query.message.message_id,
                 reply_markup=button(
                     text='Обновить',
-                    callback_data='update_10_days'))
+                    callback_data='update_10_days',
+                    switch_inline_query='Ten days'))
     elif query.inline_message_id:
         bot.send_chat_action(query.from_user.id, 'typing')
         user = users_property[query.from_user.id]
@@ -140,7 +144,8 @@ def weather_callback(query):
                 inline_message_id=query.inline_message_id,
                 reply_markup=button(
                     text='Обновить',
-                    callback_data='update_current'))
+                    callback_data='update_current',
+                    switch_inline_query='Current'))
         elif data == 'update_10_days':
             bot.edit_message_text(
                 set_message_10_days(user.url, True),
@@ -150,7 +155,8 @@ def weather_callback(query):
                 inline_message_id=query.inline_message_id,
                 reply_markup=button(
                     text='Обновить',
-                    callback_data='update_10_days'))
+                    callback_data='update_10_days',
+                    switch_inline_query='Ten days'))
 
 
 @bot.callback_query_handler(func=lambda call: True)
@@ -271,7 +277,7 @@ def set_message_10_days(url, change: bool = False):
         'h1',
         'title title_level_1 header-title__title',
         url)
-    ten_day = parsing(
+    ten_days = parsing(
         'div',
         'forecast-briefly__name',
         url)
@@ -295,7 +301,7 @@ def set_message_10_days(url, change: bool = False):
         update = '<i>(Обновлено)</i>\n'
     else:
         update = ''
-    mes = [' '.join([ten_day[i],
+    mes = [' '.join([ten_days[i],
                      time[i],
                      ('\n' + t_day[i] + '°'),
                      (', ' + t_night[i] + '°')])
@@ -376,13 +382,21 @@ def time_zone(url):
     return tz
 
 
-def button(text: str, url: str = None, callback_data: str = None):
+def button(text: str, url: str = None, callback_data: str = None,
+           switch_inline_query: str = None):
     keyboard = telebot.types.InlineKeyboardMarkup()
-    keyboard.add(
-        telebot.types.InlineKeyboardButton(
-            text,
-            url,
-            callback_data))
+    first_btn = telebot.types.InlineKeyboardButton(
+        text,
+        url,
+        callback_data)
+    if switch_inline_query:
+        keyboard.row(
+            first_btn,
+            telebot.types.InlineKeyboardButton(
+                text='Поделиться',
+                switch_inline_query=switch_inline_query))
+    else:
+        keyboard.add(first_btn)
     return keyboard
 
 
@@ -410,27 +424,29 @@ def inline_mode(inline_query):
     user = users_property[inline_query.from_user.id]
     current = telebot.types.InlineQueryResultArticle(
         '1',
-        'Погода сейчас',
+        'Current',
         telebot.types.InputTextMessageContent(set_message(user.url)),
         reply_markup=button(
             text='Обновить',
-            callback_data='update_current'),
+            callback_data='update_current',
+            switch_inline_query='Current'),
+        description='Погода сейчас',
         thumb_url=('https://www.clipartkey.com/mpngs/m/273-2739384_weather' +
                    '-icon-heart.png'))
-    ten_day = telebot.types.InlineQueryResultArticle(
+    ten_days = telebot.types.InlineQueryResultArticle(
         '2',
-        'Прогноз на 10 дней',
+        'Ten days',
         telebot.types.InputTextMessageContent(set_message_10_days(user.url)),
         reply_markup=button(
             text='Обновить',
-            callback_data='update_10_days'),
+            callback_data='update_10_days',
+            switch_inline_query='Ten days'),
+        description='Прогноз на 10 дней',
         thumb_url=('https://unblast.com/wp-content/uploads/2020/05/Weather-' +
-                   'Vector-Icons-1536x1152.jpg'),
-        thumb_width=400,
-        thumb_height=400)
+                   'Vector-Icons-1536x1152.jpg'))
     bot.answer_inline_query(
         inline_query.id,
-        [current, ten_day])
+        [current, ten_days])
 
 
 def main():
