@@ -255,6 +255,10 @@ def set_message(url, change: bool = False):
         'div',
         'link__condition day-anchor i-bem',
         url)
+    try:
+        wind = get_wind_dir_emoji(weather_value[2].split("м/с, ")[1])
+    except IndexError:
+        wind = ''
     hour = int((time[0].strip(". ").split(' ')[1].split(':')[0]))
     if change is True:
         update = '<i>(Обновлено)</i>\n'
@@ -267,7 +271,7 @@ def set_message(url, change: bool = False):
             f'ощущается как {"".join([weather_value[1], "°"])}\n' +
             f'{condition[0]} {get_weather_emoji(condition[0], hour)}\n' +
             f'{dashing_away} {weather_value[2]}' +
-            f'{get_wind_dir_emoji(weather_value[2].split("м/с, ")[1])}\n' +
+            f'{wind}\n' +
             f'{droplet} {weather_value[3]} ' +
             f'{barometer} {weather_value[4]}')
 
