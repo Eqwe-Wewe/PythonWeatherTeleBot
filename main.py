@@ -1,23 +1,26 @@
 import config_tb
+from config_db import config
 import requests
 from datetime import datetime
 from bs4 import BeautifulSoup
 import telebot
+from db import UseDataBase
 from emoji import *
+
+
+# заглавная страница сервиса Яндекс.Погода с прогнозом
+# по текущему месту положения
+URL = 'https://yandex.ru/pogoda/'
+
+# список регионов России
+URL_REGIONS = 'https://yandex.ru/pogoda/region/225?via=reg'
+
+# ссылка на конкретный регион
+URL_REGION = None
 
 
 class Var():
     def __init__(self):
-
-        # заглавная страница сервиса Яндекс.Погода с прогнозом
-        # по текущему месту положения
-        self.url = 'https://yandex.ru/pogoda/'
-
-        # список регионов России
-        self.url_regions = 'https://yandex.ru/pogoda/region/225?via=reg'
-
-        # ссылка на конкретный регион
-        self.url_region = None
 
         # первая буква из названия региона
         self.btn = None
@@ -35,8 +38,15 @@ bot = telebot.TeleBot(config_tb.TOKEN)
 
 @bot.message_handler(commands=['start'])
 def welcome(message):
-    user = Var()
-    users_property[message.chat.id] = user
+    users_property[message.chat.id] = Var()
+    with UseDataBase(config) as cursor:
+        query = f"""INSERT INTO users_property
+                (chat_id, url, url_regions, url_region)
+                VALUES ({message.chat.id}, '{URL}',
+                '{URL_REGIONS}', '{URL_REGION}')
+                ON CONFLICT(chat_id)
+                DO NOTHING;"""
+        cursor.execute(query)
     bot.send_message(
         message.chat.id,
         'Привет! Я помогу тебе узнать прогноз погоды.\n' +
@@ -68,7 +78,8 @@ def current_weather(message):
     bot.send_chat_action(message.chat.id, 'typing')
     bot.send_message(
         message.chat.id,
-        set_message(users_property[message.chat.id].url),
+        # set_message(users_property[message.chat.id].url),
+        set_message(get_urls('url', message.chat.id)),
         reply_markup=button(
             text='Обновить',
             callback_data='update_current',
@@ -80,7 +91,7 @@ def ten_days_weather(message):
     bot.send_chat_action(message.chat.id, 'typing')
     bot.send_message(
         message.chat.id,
-        set_message_10_days(users_property[message.chat.id].url),
+        set_message_10_days(get_urls('url', message.chat.id)),
         reply_markup=button(
             text='Обновить',
             callback_data='update_10_days',
@@ -91,7 +102,9 @@ def ten_days_weather(message):
 def location_selection(message):
     bot.send_chat_action(message.chat.id, 'typing')
     keyboard = alphabet(
-        users_property[message.chat.id].url_regions,
+        get_urls(
+            'url_regions',
+            message.chat.id),
         'set_region_')
     bot.send_message(
         message.chat.id,
@@ -105,10 +118,13 @@ def weather_callback(query):
     bot.answer_callback_query(query.id)
     if query.message:
         bot.send_chat_action(query.message.chat.id, 'typing')
-        user = users_property[query.message.chat.id]
         if data == 'update_current':
             bot.edit_message_text(
-                set_message(user.url, True),
+                set_message(
+                    get_urls(
+                        'url',
+                        query.message.chat.id),
+                    True),
                 query.message.chat.id,
                 query.message.message_id,
                 parse_mode='HTML')
@@ -121,7 +137,11 @@ def weather_callback(query):
                     switch_inline_query='Current'))
         elif data == 'update_10_days':
             bot.edit_message_text(
-                set_message_10_days(user.url, True),
+                set_message_10_days(
+                    get_urls(
+                        'url',
+                        query.message.chat.id),
+                    True),
                 query.message.chat.id,
                 query.message.message_id,
                 parse_mode='HTML')
@@ -134,10 +154,13 @@ def weather_callback(query):
                     switch_inline_query='Ten days'))
     elif query.inline_message_id:
         bot.send_chat_action(query.from_user.id, 'typing')
-        user = users_property[query.from_user.id]
         if data == 'update_current':
             bot.edit_message_text(
-                set_message(user.url, True),
+                set_message(
+                    get_urls(
+                        'url',
+                        query.from_user.id),
+                    True),
                 inline_message_id=query.inline_message_id,
                 parse_mode='HTML')
             bot.edit_message_reply_markup(
@@ -148,7 +171,11 @@ def weather_callback(query):
                     switch_inline_query='Current'))
         elif data == 'update_10_days':
             bot.edit_message_text(
-                set_message_10_days(user.url, True),
+                set_message_10_days(
+                    get_urls(
+                        'url',
+                        query.from_user.id),
+                    True),
                 inline_message_id=query.inline_message_id,
                 parse_mode='HTML')
             bot.edit_message_reply_markup(
@@ -165,13 +192,21 @@ def location_query(query):
     data = query.data
     bot.answer_callback_query(query.id)
     if data == 'set_location_back':
-        keyboard = alphabet(user.url_regions, 'set_region_')
+        keyboard = alphabet(
+            get_urls(
+                'url_regions',
+                query.message.chat.id),
+            'set_region_')
         bot.edit_message_text(
             'Выберите первый символ из названия региона РФ',
             query.message.chat.id,
             query.message.message_id)
     elif data.startswith('set_region'):
-        regions = set_region(query.data[-1], user.url_regions)
+        regions = set_region(
+            query.data[-1],
+            get_urls(
+                'url_regions',
+                query.message.chat.id))
         keyboard = telebot.types.InlineKeyboardMarkup(2)
         lst = [telebot.types.InlineKeyboardButton(
             regions[region][0],
@@ -188,9 +223,17 @@ def location_query(query):
             query.message.message_id)
     elif data.startswith('set_sub_reg') or data == 'set_sub_reg_back':
         if data != 'set_sub_reg_back':
-            btn, user.url_region = query.data.split('|')
+            btn, value = query.data.split('|')
+            set_urls(
+                'url_region',
+                value,
+                query.message.chat.id)
             user.btn = btn[-1]
-        keyboard = alphabet(user.url_region, 'main_sub_reg')
+        keyboard = alphabet(
+            get_urls(
+                'url_region',
+                query.message.chat.id),
+            'main_sub_reg')
         keyboard.add(
             telebot.types.InlineKeyboardButton(
                 '<<Назад',
@@ -202,7 +245,8 @@ def location_query(query):
     elif data.startswith('main_sub_reg'):
         if query.data != 'main_sub_reg_back':
             user.btn_sub_reg = query.data[-1]
-        user.regions = set_region(user.btn_sub_reg, user.url_region)
+        url_region = get_urls('url_region', query.message.chat.id)
+        user.regions = set_region(user.btn_sub_reg, url_region)
         keyboard = telebot.types.InlineKeyboardMarkup(2)
         lst = [telebot.types.InlineKeyboardButton(
             user.regions[region][0],
@@ -222,7 +266,10 @@ def location_query(query):
         regions = dict(user.regions)
         sub_reg = [(region, regions[region]) for region in regions.keys()
                    if region.startswith(key)]
-        user.url = sub_reg[0][1]
+        set_urls(
+            'url',
+            sub_reg[0][1],
+            query.message.chat.id)
         keyboard = telebot.types.InlineKeyboardMarkup()
         keyboard.row(
             telebot.types.InlineKeyboardButton(
@@ -317,6 +364,23 @@ def set_message_10_days(url, change: bool = False):
             + '\nПрогноз на 10 дней\n'
             + f'{update}\n'
             + ''.join(mes))
+
+
+def set_urls(url, value, chat_id):
+    with UseDataBase(config) as cursor:
+        operation = f"""UPDATE users_property
+                    SET {url} = '{value}'
+                    WHERE chat_id = {chat_id};"""
+        cursor.execute(operation)
+
+
+def get_urls(url, chat_id):
+    with UseDataBase(config) as cursor:
+        operation = f"""SELECT {url} from users_property
+                    WHERE chat_id = {chat_id};"""
+        cursor.execute(operation)
+        result = cursor.fetchall()
+    return result[0][0]
 
 
 def alphabet(url, choosing_region):
@@ -425,11 +489,14 @@ def get_wind_dir_emoji(value):
 
 @bot.inline_handler(func=lambda query: True)
 def inline_mode(inline_query):
-    user = users_property[inline_query.from_user.id]
     current = telebot.types.InlineQueryResultArticle(
         '1',
         'Current',
-        telebot.types.InputTextMessageContent(set_message(user.url)),
+        telebot.types.InputTextMessageContent(
+            set_message(
+                get_urls(
+                    'url',
+                    inline_query.from_user.id))),
         reply_markup=button(
             text='Обновить',
             callback_data='update_current',
@@ -440,7 +507,11 @@ def inline_mode(inline_query):
     ten_days = telebot.types.InlineQueryResultArticle(
         '2',
         'Ten days',
-        telebot.types.InputTextMessageContent(set_message_10_days(user.url)),
+        telebot.types.InputTextMessageContent(
+            set_message_10_days(
+                get_urls(
+                    'url',
+                    inline_query.from_user.id))),
         reply_markup=button(
             text='Обновить',
             callback_data='update_10_days',
