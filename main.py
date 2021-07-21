@@ -100,6 +100,7 @@ def ten_days_weather(message):
 
 @bot.message_handler(commands=['location_selection'])
 def location_selection(message):
+    users_property[message.chat.id] = Var()
     bot.send_chat_action(message.chat.id, 'typing')
     keyboard = alphabet(
         get_urls(
@@ -188,10 +189,102 @@ def weather_callback(query):
 
 @bot.callback_query_handler(func=lambda call: True)
 def location_query(query):
+    if query.message.chat.id not in users_property:
+        users_property[query.message.chat.id] = Var()
     user = users_property[query.message.chat.id]
     data = query.data
     bot.answer_callback_query(query.id)
-    if data == 'set_location_back':
+    try:
+        if data == 'set_location_back':
+            keyboard = alphabet(
+                get_urls(
+                    'url_regions',
+                    query.message.chat.id),
+                'set_region_')
+            bot.edit_message_text(
+                'Выберите первый символ из названия региона РФ',
+                query.message.chat.id,
+                query.message.message_id)
+        elif data.startswith('set_region'):
+            regions = set_region(
+                query.data[-1],
+                get_urls(
+                    'url_regions',
+                    query.message.chat.id))
+            keyboard = telebot.types.InlineKeyboardMarkup(2)
+            lst = [telebot.types.InlineKeyboardButton(
+                regions[region][0],
+                callback_data=(f'set_sub_reg{query.data[-1]}' +
+                               f'|{regions[region][1]}'))
+                   for region in range(len(regions))]
+            keyboard.add(*lst)
+            keyboard.add(
+                telebot.types.InlineKeyboardButton(
+                    '<<Назад',
+                    callback_data='set_location_back'))
+            bot.edit_message_text(
+                'Выберите регион',
+                query.message.chat.id,
+                query.message.message_id)
+        elif data.startswith('set_sub_reg') or data == 'set_sub_reg_back':
+            if data != 'set_sub_reg_back':
+                btn, value = query.data.split('|')
+                set_urls(
+                    'url_region',
+                    value,
+                    query.message.chat.id)
+                user.btn = btn[-1]
+            keyboard = alphabet(
+                get_urls(
+                    'url_region',
+                    query.message.chat.id),
+                'main_sub_reg')
+            keyboard.add(
+                telebot.types.InlineKeyboardButton(
+                    '<<Назад',
+                    callback_data=f'set_region{user.btn}'))
+            bot.edit_message_text(
+                'Выберите первый символ из названия субъекта региона',
+                query.message.chat.id,
+                query.message.message_id)
+        elif data.startswith('main_sub_reg'):
+            if query.data != 'main_sub_reg_back':
+                user.btn_sub_reg = query.data[-1]
+            url_region = get_urls('url_region', query.message.chat.id)
+            user.regions = set_region(user.btn_sub_reg, url_region)
+            keyboard = telebot.types.InlineKeyboardMarkup(2)
+            lst = [telebot.types.InlineKeyboardButton(
+                user.regions[region][0],
+                callback_data=f'current|{user.regions[region][0][:12]}')
+                for region in range(len(user.regions))]
+            keyboard.add(*lst)
+            keyboard.add(
+                telebot.types.InlineKeyboardButton(
+                    '<<Назад',
+                    callback_data='set_sub_reg_back'))
+            bot.edit_message_text(
+                'Выберите место',
+                query.message.chat.id,
+                query.message.message_id)
+        elif data.startswith('current'):
+            key = query.data.split("|")[1]
+            regions = dict(user.regions)
+            sub_reg = [(region, regions[region]) for region in regions.keys()
+                       if region.startswith(key)]
+            set_urls(
+                'url',
+                sub_reg[0][1],
+                query.message.chat.id)
+            keyboard = telebot.types.InlineKeyboardMarkup()
+            keyboard.row(
+                telebot.types.InlineKeyboardButton(
+                    '<<Назад',
+                    callback_data='main_sub_reg_back'))
+            bot.edit_message_text(
+                f'Вы выбрали "{sub_reg[0][0]}" локацией по умолчанию.',
+                query.message.chat.id,
+                query.message.message_id)
+    except TypeError:
         keyboard = alphabet(
             get_urls(
                 'url_regions',
@@ -199,84 +292,6 @@ def location_query(query):
             'set_region_')
         bot.edit_message_text(
             'Выберите первый символ из названия региона РФ',
-            query.message.chat.id,
-            query.message.message_id)
-    elif data.startswith('set_region'):
-        regions = set_region(
-            query.data[-1],
-            get_urls(
-                'url_regions',
-                query.message.chat.id))
-        keyboard = telebot.types.InlineKeyboardMarkup(2)
-        lst = [telebot.types.InlineKeyboardButton(
-            regions[region][0],
-            callback_data=f'set_sub_reg{query.data[-1]}|{regions[region][1]}')
-            for region in range(len(regions))]
-        keyboard.add(*lst)
-        keyboard.add(
-            telebot.types.InlineKeyboardButton(
-                '<<Назад',
-                callback_data='set_location_back'))
-        bot.edit_message_text(
-            'Выберите регион',
-            query.message.chat.id,
-            query.message.message_id)
-    elif data.startswith('set_sub_reg') or data == 'set_sub_reg_back':
-        if data != 'set_sub_reg_back':
-            btn, value = query.data.split('|')
-            set_urls(
-                'url_region',
-                value,
-                query.message.chat.id)
-            user.btn = btn[-1]
-        keyboard = alphabet(
-            get_urls(
-                'url_region',
-                query.message.chat.id),
-            'main_sub_reg')
-        keyboard.add(
-            telebot.types.InlineKeyboardButton(
-                '<<Назад',
-                callback_data=f'set_region{user.btn}'))
-        bot.edit_message_text(
-            'Выберите первый символ из названия субъекта региона',
-            query.message.chat.id,
-            query.message.message_id)
-    elif data.startswith('main_sub_reg'):
-        if query.data != 'main_sub_reg_back':
-            user.btn_sub_reg = query.data[-1]
-        url_region = get_urls('url_region', query.message.chat.id)
-        user.regions = set_region(user.btn_sub_reg, url_region)
-        keyboard = telebot.types.InlineKeyboardMarkup(2)
-        lst = [telebot.types.InlineKeyboardButton(
-            user.regions[region][0],
-            callback_data=f'current|{user.regions[region][0][:12]}')
-            for region in range(len(user.regions))]
-        keyboard.add(*lst)
-        keyboard.add(
-            telebot.types.InlineKeyboardButton(
-                '<<Назад',
-                callback_data='set_sub_reg_back'))
-        bot.edit_message_text(
-            'Выберите место',
-            query.message.chat.id,
-            query.message.message_id)
-    elif data.startswith('current'):
-        key = query.data.split("|")[1]
-        regions = dict(user.regions)
-        sub_reg = [(region, regions[region]) for region in regions.keys()
-                   if region.startswith(key)]
-        set_urls(
-            'url',
-            sub_reg[0][1],
-            query.message.chat.id)
-        keyboard = telebot.types.InlineKeyboardMarkup()
-        keyboard.row(
-            telebot.types.InlineKeyboardButton(
-                '<<Назад',
-                callback_data='main_sub_reg_back'))
-        bot.edit_message_text(
-            f'Вы выбрали "{sub_reg[0][0]}" локацией по умолчанию.',
             query.message.chat.id,
             query.message.message_id)
     bot.edit_message_reply_markup(
