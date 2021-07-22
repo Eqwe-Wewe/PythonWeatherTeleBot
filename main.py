@@ -51,9 +51,9 @@ def welcome(message):
         message.chat.id,
         'Привет! Я помогу тебе узнать прогноз погоды.\n' +
         'Чтобы посмотреть данные о погоде на текущий момент ' +
-        '/current_weather.\n' +
-        'Посмотреть прогноз погоды на 10 дней /10_day_weather.\n' +
-        'Выбрать местоположение /location_selection.\n' +
+        '/weather_now.\n' +
+        'Посмотреть прогноз погоды на 10 дней /10_day_forecast.\n' +
+        'Выбрать местоположение /select_city_or_area.\n' +
         'Получить помощь /help.')
 
 
@@ -61,11 +61,13 @@ def welcome(message):
 def help(message):
     bot.send_message(
         message.chat.id,
-        '1) Посмотреть данные о погоде на текущий момент /current_weather.\n' +
-        '2) Посмотреть прогноз погоды на 10 дней /10_day_weather.\n' +
+        '1) Посмотреть данные о погоде на текущий момент /weather_now.\n' +
+        '2) Посмотреть прогноз погоды на 10 дней /10_day_forecast.\n' +
         '3) Нажми «Обновить», чтобы получить обновленную информацию о' +
         ' погоде.\n' +
-        '4) Для смены региона в прогнозе погоды /location_selection.\n',
+        '4) Для смены региона в прогнозе погоды /location_selection.\n' +
+        '5) Бот поддерживает встроенный режим. Введи <yournameforthebot>' +
+        ' в любом чате и выбери команду для составления прогноза погоды.',
         reply_markup=button(
             text='Связаться с разработчиком',
 
@@ -73,7 +75,7 @@ def help(message):
             url='telegram.me/<yourrandomdeveloper>'))
 
 
-@bot.message_handler(commands=['current_weather'])
+@bot.message_handler(commands=['weather_now'])
 def current_weather(message):
     bot.send_chat_action(message.chat.id, 'typing')
     bot.send_message(
@@ -86,19 +88,19 @@ def current_weather(message):
             switch_inline_query='Current'))
 
 
-@bot.message_handler(commands=['10_day_weather'])
-def ten_days_weather(message):
+@bot.message_handler(commands=['10_day_forecast'])
+def ten_day_weather(message):
     bot.send_chat_action(message.chat.id, 'typing')
     bot.send_message(
         message.chat.id,
-        set_message_10_days(get_urls('url', message.chat.id)),
+        set_message_10_day(get_urls('url', message.chat.id)),
         reply_markup=button(
             text='Обновить',
-            callback_data='update_10_days',
-            switch_inline_query='Ten days'))
+            callback_data='update_10_day',
+            switch_inline_query='10 day'))
 
 
-@bot.message_handler(commands=['location_selection'])
+@bot.message_handler(commands=['select_city_or_area'])
 def location_selection(message):
     users_property[message.chat.id] = Var()
     bot.send_chat_action(message.chat.id, 'typing')
@@ -136,9 +138,9 @@ def weather_callback(query):
                     text='Обновить',
                     callback_data='update_current',
                     switch_inline_query='Current'))
-        elif data == 'update_10_days':
+        elif data == 'update_10_day':
             bot.edit_message_text(
-                set_message_10_days(
+                set_message_10_day(
                     get_urls(
                         'url',
                         query.message.chat.id),
@@ -151,8 +153,8 @@ def weather_callback(query):
                 query.message.message_id,
                 reply_markup=button(
                     text='Обновить',
-                    callback_data='update_10_days',
-                    switch_inline_query='Ten days'))
+                    callback_data='update_10_day',
+                    switch_inline_query='10 day'))
     elif query.inline_message_id:
         bot.send_chat_action(query.from_user.id, 'typing')
         if data == 'update_current':
@@ -170,9 +172,9 @@ def weather_callback(query):
                     text='Обновить',
                     callback_data='update_current',
                     switch_inline_query='Current'))
-        elif data == 'update_10_days':
+        elif data == 'update_10_day':
             bot.edit_message_text(
-                set_message_10_days(
+                set_message_10_day(
                     get_urls(
                         'url',
                         query.from_user.id),
@@ -183,8 +185,8 @@ def weather_callback(query):
                 inline_message_id=query.inline_message_id,
                 reply_markup=button(
                     text='Обновить',
-                    callback_data='update_10_days',
-                    switch_inline_query='Ten days'))
+                    callback_data='update_10_day',
+                    switch_inline_query='10 day'))
 
 
 @bot.callback_query_handler(func=lambda call: True)
@@ -338,12 +340,12 @@ def set_message(url, change: bool = False):
             f'{barometer} {weather_value[4]}')
 
 
-def set_message_10_days(url, change: bool = False):
+def set_message_10_day(url, change: bool = False):
     sub_reg = parsing(
         'h1',
         'title title_level_1 header-title__title',
         url)
-    ten_days = parsing(
+    ten_day = parsing(
         'div',
         'forecast-briefly__name',
         url)
@@ -367,7 +369,7 @@ def set_message_10_days(url, change: bool = False):
         update = '<i>(Обновлено)</i>\n'
     else:
         update = ''
-    mes = [' '.join([ten_days[i],
+    mes = [' '.join([ten_day[i],
                      time[i],
                      ('\n' + t_day[i] + '°'),
                      (', ' + t_night[i] + '°')])
@@ -519,24 +521,24 @@ def inline_mode(inline_query):
         description='Погода сейчас',
         thumb_url=('https://www.clipartkey.com/mpngs/m/273-2739384_weather' +
                    '-icon-heart.png'))
-    ten_days = telebot.types.InlineQueryResultArticle(
+    ten_day = telebot.types.InlineQueryResultArticle(
         '2',
-        'Ten days',
+        '10 day',
         telebot.types.InputTextMessageContent(
-            set_message_10_days(
+            set_message_10_day(
                 get_urls(
                     'url',
                     inline_query.from_user.id))),
         reply_markup=button(
             text='Обновить',
-            callback_data='update_10_days',
-            switch_inline_query='Ten days'),
+            callback_data='update_10_day',
+            switch_inline_query='10 day'),
         description='Прогноз на 10 дней',
         thumb_url=('https://unblast.com/wp-content/uploads/2020/05/Weather-' +
                    'Vector-Icons-1536x1152.jpg'))
     bot.answer_inline_query(
         inline_query.id,
-        [current, ten_days])
+        [current, ten_day])
 
 
 def main():
