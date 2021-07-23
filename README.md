@@ -6,8 +6,11 @@ The data is parsed with [Yandex.Weather](https://yandex.ru/pogoda/).<br>
 The interface is in Russian.
 # Features:
  - weather now
+ - ![](docs/weather_now.gif) 
  - 10-day weather forecast
+ - ![](docs/10_day_forecast.gif)
  - choosing the weather in the right city or area
+ - ![](docs/select_city_or_area.gif)
  - storing user parameters for the bot operation
 # For running application:
  * Python 3.8.6
