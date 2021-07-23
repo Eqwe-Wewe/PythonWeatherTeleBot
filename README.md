@@ -1,7 +1,7 @@
 # PythonWeatherTeleBot
 :partly_sunny:  Telegram bot for showing weather
 # About PythonWeatherTeleBot:
-A pretty telegram bot for showing the weather on the territory of Russia.<br>
+A pretty simple telegram bot for showing the weather on the territory of Russia.<br>
 The data is parsed with [Yandex.Weather](https://yandex.ru/pogoda/).<br>
 The interface is in Russian.
 # Features:
@@ -13,7 +13,7 @@ The interface is in Russian.
  - ![](docs/select_city_or_area.gif)
  - storing user parameters for the bot operation
 # For running application:
- * Python 3.8.6
+ * [Python 3.8.6](https://www.python.org/downloads/release/python-386/)
  * [pyTelegramBotAPI 3.8.2](https://pypi.org/project/pyTelegramBotAPI/)
  * [beautifulsoup4 4.9.3](https://pypi.org/project/beautifulsoup4/)
  * [requests 2.25.1](https://pypi.org/project/requests/2.25.1/)
