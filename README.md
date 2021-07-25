@@ -16,6 +16,7 @@ The interface is in Russian.
  * [Python 3.8.6](https://www.python.org/downloads/release/python-386/)
  * [pyTelegramBotAPI 3.8.2](https://pypi.org/project/pyTelegramBotAPI/)
  * [beautifulsoup4 4.9.3](https://pypi.org/project/beautifulsoup4/)
+ * [lxml 4.6.3](https://pypi.org/project/lxml/)
  * [requests 2.25.1](https://pypi.org/project/requests/2.25.1/)
  * [psycopg2 2.9.1](https://pypi.org/project/psycopg2/)
  * [PostgreSQL](https://www.postgresql.org/download/)
