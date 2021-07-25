@@ -302,38 +302,36 @@ def location_query(query):
         reply_markup=keyboard)
 
 
+def scraping(url: str):
+    html = requests.get(url)
+    soup = BeautifulSoup(html.text, 'lxml')
+    return soup
+
+
 def set_message(url, change: bool = False):
-    sub_reg = parsing(
-        'h1',
-        'title title_level_1 header-title__title',
-        url)
-    time = parsing(
-        'time',
-        'time fact__time',
-        url)
-    weather_value = parsing(
-        'div',
-        'term__value',
-        url)
-    condition = parsing(
-        'div',
-        'link__condition day-anchor i-bem',
-        url)
+    soup = scraping(url)
+    sub_reg = soup.find('h1').text
+    weather_value = soup.find_all('div', 'term__value')
+    condition = soup.find('div', 'link__condition day-anchor i-bem').text
+    time = soup.find('time')
+    current_time = time.text
+    tz = time.get('datetime')
+    time_of_day = int((tz.strip(". ").split(' ')[1].split(':')[0]))
+    weather_value = [item.text for item in weather_value]
     try:
         wind = get_wind_dir_emoji(weather_value[2].split("м/с, ")[1])
     except IndexError:
         wind = ''
-    hour = int((time[0].strip(". ").split(' ')[1].split(':')[0]))
     if change is True:
         update = '<i>(Обновлено)</i>\n'
     else:
         update = ''
-    return (f'{sub_reg[0]}\n' +
+    return (f'{sub_reg}\n' +
             f'{update}\n' +
-            f'{time[0].strip(". ")}(МСК{time_zone(url)})\n' +
+            f'{current_time.strip(". ")}(МСК{time_zone(tz)})\n' +
             f'текущая температура {"".join([weather_value[0], "°"])}\n' +
             f'ощущается как {"".join([weather_value[1], "°"])}\n' +
-            f'{condition[0]} {get_weather_emoji(condition[0], hour)}\n' +
+            f'{condition} {get_weather_emoji(condition, time_of_day)}\n' +
             f'{dashing_away} {weather_value[2]}' +
             f'{wind}\n' +
             f'{droplet} {weather_value[3]} ' +
@@ -341,43 +339,32 @@ def set_message(url, change: bool = False):
 
 
 def set_message_10_day(url, change: bool = False):
-    sub_reg = parsing(
+    soup = scraping(url)
+    sub_reg = soup.find(
         'h1',
-        'title title_level_1 header-title__title',
-        url)
-    ten_day = parsing(
+        class_='title title_level_1 header-title__title').text
+    ten_day = soup.find_all('div', 'forecast-briefly__name')
+    time = soup.find_all('time', class_='forecast-briefly__date')
+    t_day = soup.find_all(
         'div',
-        'forecast-briefly__name',
-        url)
-    time = parsing(
-        'time',
-        'forecast-briefly__date',
-        url)
-    t_day = parsing(
+        class_='temp forecast-briefly__temp forecast-briefly__temp_day')
+    t_night = soup.find_all(
         'div',
-        'temp forecast-briefly__temp forecast-briefly__temp_day',
-        url)
-    t_night = parsing(
-        'div',
-        'temp forecast-briefly__temp forecast-briefly__temp_night',
-        url)
-    condition = parsing(
-        'div',
-        'forecast-briefly__condition',
-        url)
+        class_='temp forecast-briefly__temp forecast-briefly__temp_night')
+    condition = soup.find_all('div', class_='forecast-briefly__condition')
     if change is True:
         update = '<i>(Обновлено)</i>\n'
     else:
         update = ''
-    mes = [' '.join([ten_day[i],
-                     time[i],
-                     ('\n' + t_day[i] + '°'),
-                     (', ' + t_night[i] + '°')])
-           + f'\n {condition[i]}'
-           + f' {get_weather_emoji(condition[i].lower())}'
+    mes = [' '.join([ten_day[i].text,
+                     time[i].text,
+                     ('\n' + t_day[i].text + '°'),
+                     (', ' + t_night[i].text + '°')])
+           + f'\n {condition[i].text}'
+           + f' {get_weather_emoji(condition[i].text.lower())}'
            + '\n\n'
            for i in range(2, 12)]
-    return (sub_reg[0]
+    return (sub_reg
             + '\nПрогноз на 10 дней\n'
             + f'{update}\n'
             + ''.join(mes))
@@ -401,10 +388,11 @@ def get_urls(url, chat_id):
 
 
 def alphabet(url, choosing_region):
-    alphabet = parsing(
+    alphabet = scraping(url)
+    alphabet = alphabet.find_all(
         'h2',
-        'title title_level_2 place-list__letter',
-        url)
+        'title title_level_2 place-list__letter')
+    alphabet = [i.get_text() for i in alphabet]
     keyboard = keyboard_rows(alphabet, choosing_region)
     return keyboard
 
@@ -427,37 +415,19 @@ def set_region(letter, url):
 
 
 def get_location(url):
-    value = scraping(
+    soup = scraping(url)
+    soup = soup.find_all(
         'li',
-        'place-list__item place-list__item_region_yes',
-        url)
-    names = [name.get_text() for name in value]
+        'place-list__item place-list__item_region_yes')
+    names = [name.get_text() for name in soup]
     links = ['https://yandex.ru' +
-             link.find('a').get('href') for link in value]
+             link.find('a').get('href') for link in soup]
     regions = dict(zip(names, links))
     return regions
 
 
-def parsing(name: str, attrs: str, url: str):
-    value = scraping(name, attrs, url)
-    value = [i.get_text() for i in value]
-    return value
-
-
-def scraping(name: str, attrs: str, url: str):
-    html = requests.get(url)
-    soup = BeautifulSoup(html.text, 'html.parser')
-    value = soup.findAll(name, class_=attrs)
-    return value
-
-
-def time_zone(url):
-    value = scraping(
-        'time',
-        'time fact__time',
-        url)
-    tz = [i.get('datetime') for i in value]
-    tz = int(tz[0].split('+')[1][:2]) - 3
+def time_zone(tz):
+    tz = int(tz.split('+')[1][:2]) - 3
     if tz > 0:
         tz = '+' + str(tz)
     elif tz == 0:
