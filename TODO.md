@@ -1,3 +1,4 @@
 ## Task List
 - [x] add detailed weather forecast for today
 - [ ] ~~update gif in readme.md~~
+- [ ] update readme.md
