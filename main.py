@@ -52,6 +52,8 @@ def welcome(message):
         'Привет! Я помогу тебе узнать прогноз погоды.\n' +
         'Чтобы посмотреть данные о погоде на текущий момент ' +
         '/weather_now.\n' +
+        'Посмотреть подробный прогноз на сегодня ' +
+        '/weather_today_details.\n' +
         'Посмотреть прогноз погоды на 10 дней /10_day_forecast.\n' +
         'Выбрать местоположение /select_city_or_area.\n' +
         'Получить помощь /help.')
@@ -61,12 +63,14 @@ def welcome(message):
 def help(message):
     bot.send_message(
         message.chat.id,
-        '1) Посмотреть данные о погоде на текущий момент /weather_now.\n' +
-        '2) Посмотреть прогноз погоды на 10 дней /10_day_forecast.\n' +
-        '3) Нажми «Обновить», чтобы получить обновленную информацию о' +
+        '1) Посмотреть погоду на текущий момент /weather_now.\n' +
+        '2) Посмотреть подробный прогноз на сегодня ' +
+        '/weather_today_details.\n' +
+        '3) Посмотреть прогноз погоды на 10 дней /10_day_forecast.\n' +
+        '4) Нажми «Обновить», чтобы получить обновленную информацию о' +
         ' погоде.\n' +
-        '4) Для смены региона в прогнозе погоды /location_selection.\n' +
-        '5) Бот поддерживает встроенный режим. Введи <yournameforthebot>' +
+        '5) Для смены региона в прогнозе погоды /location_selection.\n' +
+        '6) Бот поддерживает встроенный режим. Введи <yournameforthebot>' +
         ' в любом чате и выбери команду для составления прогноза погоды.',
         reply_markup=button(
             text='Связаться с разработчиком',
@@ -80,12 +84,19 @@ def current_weather(message):
     bot.send_chat_action(message.chat.id, 'typing')
     bot.send_message(
         message.chat.id,
-        # set_message(users_property[message.chat.id].url),
         set_message(get_urls('url', message.chat.id)),
         reply_markup=button(
             text='Обновить',
             callback_data='update_current',
             switch_inline_query='Current'))
+
+
+@bot.message_handler(commands=['weather_today_details'])
+def weather_details(message):
+    bot.send_chat_action(message.chat.id, 'typing')
+    bot.send_message(
+        message.chat.id,
+        set_details_message(get_urls('url', message.chat.id)))
 
 
 @bot.message_handler(commands=['10_day_forecast'])
@@ -338,6 +349,83 @@ def set_message(url, change: bool = False):
             f'{barometer} {weather_value[4]}')
 
 
+def set_details_message(url):
+    url = url.split('?')[0] + '/details'
+    soup = scraping(url)
+    data = soup.find('div', 'card')
+    today = data.find(
+        'h2',
+        'forecast-details__title')
+    day = today.find('strong').text
+    month = today.find('span').text
+    table = data.find_all(
+        'tr',
+        'weather-table__row')
+    rows = []
+    for val in table:
+        daypart = val.find(
+            'div',
+            'weather-table__daypart').text
+        # температура, прогнозируемая на определенную часть суток
+        # и как она ощущается
+        temp = val.find_all(
+            'span',
+            'temp__value temp__value_with-unit')
+        temp = [t.text for t in temp]
+        condition = val.find(
+            'td',
+            'weather-table__body-cell weather-table__body-cell_type_condition'
+        ).text
+        pressure = val.find(
+            'td',
+            ('weather-table__body-cell weather-table__body-cell_type_air-'
+             'pressure')).text
+        humidity = val.find(
+            'td',
+            'weather-table__body-cell weather-table__body-cell_type_humidity'
+        ).text
+        wind_speed = val.find(
+            'span',
+            'wind-speed').text
+        direct = val.find(
+            'abbr').text
+        rows.append(
+            {'daypart': daypart,
+             'temp': temp,
+             'condition': condition,
+             'pressure': pressure,
+             'humidity': humidity,
+             'wind_speed': wind_speed,
+             'direct': direct})
+    mes = [' '.join([
+        i["daypart"].capitalize(),
+        (i["temp"][0] +
+         '°' +
+         '...' +
+         i["temp"][1] +
+         '°'),
+        '\n',
+        i["condition"],
+        get_weather_emoji(i["condition"]),
+        '\n',
+        barometer,
+        i["pressure"],
+        droplet,
+        i["humidity"],
+        dashing_away,
+        i["wind_speed"],
+        i["direct"],
+        wind_dir[i["direct"]],
+        '\n',
+        'ощущается как',
+        (i["temp"][2] +
+         '°'),
+        '\n\n'])
+        for i in rows]
+    return (f'Cегодня {day} {month}\n\n' +
+            f'{"".join(mes)}')
+
+
 def set_message_10_day(url, change: bool = False):
     soup = scraping(url)
     sub_reg = soup.find(
@@ -361,7 +449,7 @@ def set_message_10_day(url, change: bool = False):
                      ('\n' + t_day[i].text + '°'),
                      (', ' + t_night[i].text + '°')])
            + f'\n {condition[i].text}'
-           + f' {get_weather_emoji(condition[i].text.lower())}'
+           + f' {get_weather_emoji(condition[i].text)}'
            + '\n\n'
            for i in range(2, 12)]
     return (sub_reg
