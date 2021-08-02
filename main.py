@@ -53,7 +53,7 @@ def welcome(message):
         'Чтобы посмотреть данные о погоде на текущий момент ' +
         '/weather_now.\n' +
         'Посмотреть подробный прогноз на сегодня ' +
-        '/weather_today_details.\n' +
+        '/weather_today.\n' +
         'Посмотреть прогноз погоды на 10 дней /10_day_forecast.\n' +
         'Выбрать местоположение /select_city_or_area.\n' +
         'Получить помощь /help.')
@@ -65,7 +65,7 @@ def help(message):
         message.chat.id,
         '1) Посмотреть погоду на текущий момент /weather_now.\n' +
         '2) Посмотреть подробный прогноз на сегодня ' +
-        '/weather_today_details.\n' +
+        '/weather_today.\n' +
         '3) Посмотреть прогноз погоды на 10 дней /10_day_forecast.\n' +
         '4) Нажми «Обновить», чтобы получить обновленную информацию о' +
         ' погоде.\n' +
@@ -91,12 +91,16 @@ def current_weather(message):
             switch_inline_query='Current'))
 
 
-@bot.message_handler(commands=['weather_today_details'])
-def weather_details(message):
+@bot.message_handler(commands=['weather_today'])
+def weather_today(message):
     bot.send_chat_action(message.chat.id, 'typing')
     bot.send_message(
         message.chat.id,
-        set_details_message(get_urls('url', message.chat.id)))
+        set_today_message(get_urls('url', message.chat.id)),
+        reply_markup=button(
+            text='Обновить',
+            callback_data='update_today',
+            switch_inline_query='Today'))
 
 
 @bot.message_handler(commands=['10_day_forecast'])
@@ -166,6 +170,23 @@ def weather_callback(query):
                     text='Обновить',
                     callback_data='update_10_day',
                     switch_inline_query='10 day'))
+        elif data == 'update_today':
+            bot.edit_message_text(
+                set_today_message(
+                    get_urls(
+                        'url',
+                        query.message.chat.id),
+                    True),
+                query.message.chat.id,
+                query.message.message_id,
+                parse_mode='HTML')
+            bot.edit_message_reply_markup(
+                query.message.chat.id,
+                query.message.message_id,
+                reply_markup=button(
+                    text='Обновить',
+                    callback_data='update_today',
+                    switch_inline_query='Today'))
     elif query.inline_message_id:
         bot.send_chat_action(query.from_user.id, 'typing')
         if data == 'update_current':
@@ -198,6 +219,21 @@ def weather_callback(query):
                     text='Обновить',
                     callback_data='update_10_day',
                     switch_inline_query='10 day'))
+        elif data == 'update_today':
+            bot.edit_message_text(
+                set_today_message(
+                    get_urls(
+                        'url',
+                        query.from_user.id),
+                    True),
+                inline_message_id=query.inline_message_id,
+                parse_mode='HTML')
+            bot.edit_message_reply_markup(
+                inline_message_id=query.inline_message_id,
+                reply_markup=button(
+                    text='Обновить',
+                    callback_data='update_today',
+                    switch_inline_query='Today'))
 
 
 @bot.callback_query_handler(func=lambda call: True)
@@ -330,7 +366,7 @@ def set_message(url, change: bool = False):
     time_of_day = int((tz.strip(". ").split(' ')[1].split(':')[0]))
     weather_value = [item.text for item in weather_value]
     try:
-        wind = get_wind_dir_emoji(weather_value[2].split("м/с, ")[1])
+        wind = wind_dir[(weather_value[2].split("м/с, ")[1])]
     except IndexError:
         wind = ''
     if change is True:
@@ -349,9 +385,13 @@ def set_message(url, change: bool = False):
             f'{barometer} {weather_value[4]}')
 
 
-def set_details_message(url):
+def set_today_message(url, change=None):
     url = url.split('?')[0] + '/details'
     soup = scraping(url)
+    city = soup.find(
+        'h1',
+        'title title_level_1 header-title__title'
+    ).text.split(' — ')[-1]
     data = soup.find('div', 'card')
     today = data.find(
         'h2',
@@ -362,6 +402,10 @@ def set_details_message(url):
         'tr',
         'weather-table__row')
     rows = []
+    if change is True:
+        update = '<i>(Обновлено)</i>\n'
+    else:
+        update = ''
     for val in table:
         daypart = val.find(
             'div',
@@ -406,7 +450,7 @@ def set_details_message(url):
          '°'),
         '\n',
         i["condition"],
-        get_weather_emoji(i["condition"]),
+        get_weather_emoji(i["condition"], i["daypart"]),
         '\n',
         barometer,
         i["pressure"],
@@ -422,7 +466,9 @@ def set_details_message(url):
          '°'),
         '\n\n'])
         for i in rows]
-    return (f'Cегодня {day} {month}\n\n' +
+    return (f'Cегодня {day} {month}\n'
+            f'{city}\n'
+            f'{update}\n'
             f'{"".join(mes)}')
 
 
@@ -549,17 +595,17 @@ def get_weather_emoji(value, hour=None):
         if hour is not None:
 
             # яндекс считает ночным временем с 0 ч. по 6 ч.
-            if hour < 6:
-                return weather_conditions_night[value]
+            if isinstance(hour, str):
+                if hour == 'ночью':
+                    hour = 3  # для удобства получения emoji выбрано это время
+            if isinstance(hour, int):
+                if hour < 6:
+                    return weather_conditions_night[value]
         return weather_conditions[value]
     except KeyError as err:
         with open('report_emoji.txt', 'a') as file:
             print(f'KeyError get_weather_emoji: {err}', file=file)
         return ''
-
-
-def get_wind_dir_emoji(value):
-    return wind_dir[value]
 
 
 @bot.inline_handler(func=lambda query: True)
@@ -580,7 +626,7 @@ def inline_mode(inline_query):
         thumb_url=('https://www.clipartkey.com/mpngs/m/273-2739384_weather' +
                    '-icon-heart.png'))
     ten_day = telebot.types.InlineQueryResultArticle(
-        '2',
+        '3',
         '10 day',
         telebot.types.InputTextMessageContent(
             set_message_10_day(
@@ -592,11 +638,26 @@ def inline_mode(inline_query):
             callback_data='update_10_day',
             switch_inline_query='10 day'),
         description='Прогноз на 10 дней',
-        thumb_url=('https://unblast.com/wp-content/uploads/2020/05/Weather-' +
+        thumb_url=('https://unblast.com/wp-content/uploads/2020/05/Weather-'
                    'Vector-Icons-1536x1152.jpg'))
+    today = telebot.types.InlineQueryResultArticle(
+        '2',
+        'Today',
+        telebot.types.InputTextMessageContent(
+            set_today_message(
+                get_urls(
+                    'url',
+                    inline_query.from_user.id))),
+        reply_markup=button(
+            text='Обновить',
+            callback_data='update_today',
+            switch_inline_query='Today'),
+        description='Прогноз на сегодня',
+        thumb_url=('https://www.clipartkey.com/mpngs/m/273-2739384_weather' +
+                   '-icon-heart.png'))
     bot.answer_inline_query(
         inline_query.id,
-        [current, ten_day])
+        [current, today, ten_day])
 
 
 def main():
