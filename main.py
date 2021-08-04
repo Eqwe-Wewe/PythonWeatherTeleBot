@@ -97,6 +97,7 @@ def weather_today(message):
     bot.send_message(
         message.chat.id,
         set_today_message(get_urls('url', message.chat.id)),
+        parse_mode='html',
         reply_markup=button(
             text='Обновить',
             callback_data='update_today',
@@ -373,16 +374,24 @@ def set_message(url, change: bool = False):
         update = '<i>(Обновлено)</i>\n'
     else:
         update = ''
-    return (f'{sub_reg}\n' +
-            f'{update}\n' +
-            f'{current_time.strip(". ")}(МСК{time_zone(tz)})\n' +
-            f'текущая температура {"".join([weather_value[0], "°"])}\n' +
-            f'ощущается как {"".join([weather_value[1], "°"])}\n' +
-            f'{condition} {get_weather_emoji(condition, time_of_day)}\n' +
-            f'{dashing_away} {weather_value[2]}' +
-            f'{wind}\n' +
-            f'{droplet} {weather_value[3]} ' +
-            f'{barometer} {weather_value[4]}')
+    sun_card = soup.find('div', 'sun-card__text-info')
+    for v, item in enumerate(sun_card):
+        if v == 2:
+            magnetic_field = item
+        elif v == 4:
+            uv_index = item
+    return (f'{sub_reg}\n'
+            f'{update}\n'
+            f'{current_time.strip(". ")}(МСК{time_zone(tz)})\n'
+            f'текущая температура {"".join([weather_value[0], "°"])}\n'
+            f'ощущается как {"".join([weather_value[1], "°"])}\n'
+            f'{condition} {get_weather_emoji(condition, time_of_day)}\n'
+            f'{dashing_away} {weather_value[2]}'
+            f'{wind}\n'
+            f'{droplet} {weather_value[3]} '
+            f'{barometer} {weather_value[4]}\n'
+            f'{uv_index}\n'
+            f'{magnetic_field}')
 
 
 def set_today_message(url, change=None):
@@ -393,6 +402,8 @@ def set_today_message(url, change=None):
         'title title_level_1 header-title__title'
     ).text.split(' — ')[-1]
     data = soup.find('div', 'card')
+    fields_val = soup.find_all('dd', 'forecast-fields__value')[:2]
+    uv_index, magnetic_field = [item.text for item in fields_val]
     today = data.find(
         'h2',
         'forecast-details__title')
@@ -469,7 +480,9 @@ def set_today_message(url, change=None):
     return (f'Cегодня {day} {month}\n'
             f'{city}\n'
             f'{update}\n'
-            f'{"".join(mes)}')
+            f'{"".join(mes)}'
+            f'УФ-индекс{uv_index}\n'
+            f'Магнитное поле {magnetic_field}')
 
 
 def set_message_10_day(url, change: bool = False):
