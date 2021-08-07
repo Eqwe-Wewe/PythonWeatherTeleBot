@@ -49,14 +49,15 @@ def welcome(message):
         cursor.execute(query)
     bot.send_message(
         message.chat.id,
-        'Привет! Я помогу тебе узнать прогноз погоды.\n' +
-        'Чтобы посмотреть данные о погоде на текущий момент ' +
-        '/weather_now.\n' +
-        'Посмотреть подробный прогноз на сегодня ' +
-        '/weather_today.\n' +
-        'Посмотреть прогноз погоды на 10 дней /10_day_forecast.\n' +
-        'Выбрать местоположение /select_city_or_area.\n' +
-        'Получить помощь /help.')
+        ('Привет! Я помогу тебе узнать прогноз погоды.\n'
+         'Чтобы посмотреть данные о погоде на текущий момент '
+         '/weather_now.\n'
+         'Посмотреть подробный прогноз на сегодня '
+         '/weather_today.\n'
+         'Посмотреть прогноз погоды на 10 дней /10_day_forecast.\n'
+         'Выбрать местоположение /select_city_or_area.\n'
+         'Получить помощь /help.\n'
+         f'Текущее местоположение: {start_area()}'))
 
 
 @bot.message_handler(commands=['help'])
@@ -85,6 +86,7 @@ def current_weather(message):
     bot.send_message(
         message.chat.id,
         set_message(get_urls('url', message.chat.id)),
+        parse_mode='html',
         reply_markup=button(
             text='Обновить',
             callback_data='update_current',
@@ -110,10 +112,18 @@ def ten_day_weather(message):
     bot.send_message(
         message.chat.id,
         set_message_10_day(get_urls('url', message.chat.id)),
+        parse_mode='html',
         reply_markup=button(
             text='Обновить',
             callback_data='update_10_day',
             switch_inline_query='10 day'))
+
+
+def start_area():
+    soup = scraping(URL)
+    area = soup.find('ol', 'breadcrumbs__list')
+    country, region, area = area.find_all('span', 'breadcrumbs__title')
+    return f'{country.text}  > {region.text} > {area.text}'
 
 
 @bot.message_handler(commands=['select_city_or_area'])
@@ -124,7 +134,7 @@ def location_selection(message):
         get_urls(
             'url_regions',
             message.chat.id),
-        'set_region_')
+        'set_region')
     bot.send_message(
         message.chat.id,
         'Выберите первый символ из названия региона РФ',
@@ -133,11 +143,10 @@ def location_selection(message):
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('update'))
 def weather_callback(query):
-    data = query.data
     bot.answer_callback_query(query.id)
     if query.message:
         bot.send_chat_action(query.message.chat.id, 'typing')
-        if data == 'update_current':
+        if query.data == 'update_current':
             bot.edit_message_text(
                 set_message(
                     get_urls(
@@ -154,7 +163,7 @@ def weather_callback(query):
                     text='Обновить',
                     callback_data='update_current',
                     switch_inline_query='Current'))
-        elif data == 'update_10_day':
+        elif query.data == 'update_10_day':
             bot.edit_message_text(
                 set_message_10_day(
                     get_urls(
@@ -171,7 +180,7 @@ def weather_callback(query):
                     text='Обновить',
                     callback_data='update_10_day',
                     switch_inline_query='10 day'))
-        elif data == 'update_today':
+        elif query.data == 'update_today':
             bot.edit_message_text(
                 set_today_message(
                     get_urls(
@@ -190,7 +199,7 @@ def weather_callback(query):
                     switch_inline_query='Today'))
     elif query.inline_message_id:
         bot.send_chat_action(query.from_user.id, 'typing')
-        if data == 'update_current':
+        if query.data == 'update_current':
             bot.edit_message_text(
                 set_message(
                     get_urls(
@@ -205,7 +214,7 @@ def weather_callback(query):
                     text='Обновить',
                     callback_data='update_current',
                     switch_inline_query='Current'))
-        elif data == 'update_10_day':
+        elif query.data == 'update_10_day':
             bot.edit_message_text(
                 set_message_10_day(
                     get_urls(
@@ -220,7 +229,7 @@ def weather_callback(query):
                     text='Обновить',
                     callback_data='update_10_day',
                     switch_inline_query='10 day'))
-        elif data == 'update_today':
+        elif query.data == 'update_today':
             bot.edit_message_text(
                 set_today_message(
                     get_urls(
@@ -242,20 +251,19 @@ def location_query(query):
     if query.message.chat.id not in users_property:
         users_property[query.message.chat.id] = Var()
     user = users_property[query.message.chat.id]
-    data = query.data
     bot.answer_callback_query(query.id)
     try:
-        if data == 'set_location_back':
+        if query.data == 'set_location_back':
             keyboard = alphabet(
                 get_urls(
                     'url_regions',
                     query.message.chat.id),
-                'set_region_')
+                'set_region')
             bot.edit_message_text(
                 'Выберите первый символ из названия региона РФ',
                 query.message.chat.id,
                 query.message.message_id)
-        elif data.startswith('set_region'):
+        elif query.data.startswith('set_region'):
             regions = set_region(
                 query.data[-1],
                 get_urls(
@@ -276,8 +284,9 @@ def location_query(query):
                 'Выберите регион',
                 query.message.chat.id,
                 query.message.message_id)
-        elif data.startswith('set_sub_reg') or data == 'set_sub_reg_back':
-            if data != 'set_sub_reg_back':
+        elif (query.data.startswith('set_sub_reg')
+              or query.data == 'set_sub_reg_back'):
+            if query.data != 'set_sub_reg_back':
                 btn, value = query.data.split('|')
                 set_urls(
                     'url_region',
@@ -297,7 +306,7 @@ def location_query(query):
                 'Выберите первый символ из названия субъекта региона',
                 query.message.chat.id,
                 query.message.message_id)
-        elif data.startswith('main_sub_reg'):
+        elif query.data.startswith('main_sub_reg'):
             if query.data != 'main_sub_reg_back':
                 user.btn_sub_reg = query.data[-1]
             url_region = get_urls('url_region', query.message.chat.id)
@@ -316,7 +325,7 @@ def location_query(query):
                 'Выберите место',
                 query.message.chat.id,
                 query.message.message_id)
-        elif data.startswith('current'):
+        elif query.data.startswith('current'):
             key = query.data.split("|")[1]
             regions = dict(user.regions)
             sub_reg = [(region, regions[region]) for region in regions.keys()
@@ -359,6 +368,8 @@ def scraping(url: str):
 def set_message(url, change: bool = False):
     soup = scraping(url)
     sub_reg = soup.find('h1').text
+    area = soup.find('ol', 'breadcrumbs__list')
+    region = area.find_all('span', 'breadcrumbs__title')[1].text
     weather_value = soup.find_all('div', 'term__value')
     condition = soup.find('div', 'link__condition day-anchor i-bem').text
     time = soup.find('time')
@@ -380,7 +391,7 @@ def set_message(url, change: bool = False):
             magnetic_field = item
         elif v == 4:
             uv_index = item
-    return (f'{sub_reg}\n'
+    return (f'{sub_reg}\n(<i>{region}</i>)\n'
             f'{update}\n'
             f'{current_time.strip(". ")}(МСК{time_zone(tz)})\n'
             f'текущая температура {"".join([weather_value[0], "°"])}\n'
@@ -397,10 +408,8 @@ def set_message(url, change: bool = False):
 def set_today_message(url, change=None):
     url = url.split('?')[0] + '/details'
     soup = scraping(url)
-    city = soup.find(
-        'h1',
-        'title title_level_1 header-title__title'
-    ).text.split(' — ')[-1]
+    area = soup.find('nav', 'breadcrumbs')
+    region, city = area.find_all('span', 'breadcrumbs__title')[1:3]
     data = soup.find('div', 'card')
     fields_val = soup.find_all('dd', 'forecast-fields__value')[:2]
     uv_index, magnetic_field = [item.text for item in fields_val]
@@ -478,7 +487,7 @@ def set_today_message(url, change=None):
         '\n\n'])
         for i in rows]
     return (f'Cегодня {day} {month}\n'
-            f'{city}\n'
+            f'{city.text}\n<i>({region.text})</i>\n'
             f'{update}\n'
             f'{"".join(mes)}'
             f'УФ-индекс{uv_index}\n'
@@ -490,6 +499,8 @@ def set_message_10_day(url, change: bool = False):
     sub_reg = soup.find(
         'h1',
         class_='title title_level_1 header-title__title').text
+    area = soup.find('ol', 'breadcrumbs__list')
+    region = area.find_all('span', 'breadcrumbs__title')[1].text
     ten_day = soup.find_all('div', 'forecast-briefly__name')
     time = soup.find_all('time', class_='forecast-briefly__date')
     t_day = soup.find_all(
@@ -511,10 +522,11 @@ def set_message_10_day(url, change: bool = False):
            + f' {get_weather_emoji(condition[i].text)}'
            + '\n\n'
            for i in range(2, 12)]
-    return (sub_reg
-            + '\nПрогноз на 10 дней\n'
-            + f'{update}\n'
-            + ''.join(mes))
+    return (f'{sub_reg}'
+            f'\n<i>({region})</i>'
+            '\nПрогноз на 10 дней\n'
+            f'{update}\n'
+            f'{"".join(mes)}')
 
 
 def set_urls(url, value, chat_id):
