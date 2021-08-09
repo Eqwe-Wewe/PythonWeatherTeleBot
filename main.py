@@ -41,9 +41,9 @@ def welcome(message):
     users_property[message.chat.id] = Var()
     with UseDataBase(config) as cursor:
         query = f"""INSERT INTO users_property
-                (chat_id, url, url_regions, url_region)
-                VALUES ({message.chat.id}, '{URL}',
-                '{URL_REGIONS}', '{URL_REGION}')
+                (chat_id, url, url_region)
+                VALUES ({message.chat.id},
+                '{URL}', '{URL_REGION}')
                 ON CONFLICT(chat_id)
                 DO NOTHING;"""
         cursor.execute(query)
@@ -131,9 +131,7 @@ def location_selection(message):
     users_property[message.chat.id] = Var()
     bot.send_chat_action(message.chat.id, 'typing')
     keyboard = alphabet(
-        get_urls(
-            'url_regions',
-            message.chat.id),
+        URL_REGIONS,
         'set_region')
     bot.send_message(
         message.chat.id,
@@ -255,9 +253,7 @@ def location_query(query):
     try:
         if query.data == 'set_location_back':
             keyboard = alphabet(
-                get_urls(
-                    'url_regions',
-                    query.message.chat.id),
+                URL_REGIONS,
                 'set_region')
             bot.edit_message_text(
                 'Выберите первый символ из названия региона РФ',
@@ -266,9 +262,7 @@ def location_query(query):
         elif query.data.startswith('set_region'):
             regions = set_region(
                 query.data[-1],
-                get_urls(
-                    'url_regions',
-                    query.message.chat.id))
+                URL_REGIONS)
             keyboard = telebot.types.InlineKeyboardMarkup(2)
             lst = [telebot.types.InlineKeyboardButton(
                 regions[region][0],
@@ -345,9 +339,7 @@ def location_query(query):
                 query.message.message_id)
     except TypeError:
         keyboard = alphabet(
-            get_urls(
-                'url_regions',
-                query.message.chat.id),
+            URL_REGIONS,
             'set_region_')
         bot.edit_message_text(
             'Выберите первый символ из названия региона РФ',
@@ -461,6 +453,9 @@ def set_today_message(url, change=None):
              'humidity': humidity,
              'wind_speed': wind_speed,
              'direct': direct})
+    for i in rows:
+        print(i)
+        print()
     mes = [' '.join([
         i["daypart"].capitalize(),
         (i["temp"][0] +
