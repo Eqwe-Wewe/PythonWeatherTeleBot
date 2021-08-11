@@ -44,12 +44,12 @@ The interface is in Russian.
     - configure the PostgreSQL login for use in config.db(example)
      ```python
      pyconfig = {
-           'user': 'postgres', 
+           'user': '<randomuser>', 
            'password': '<randompassword>',
-           'host': '127.0.0.1',
-           'port': '5432',
+           'host': '<randomhost',
+           'port': '<randomport>',
            'database': '<randomdatabase>'
-           }
+     }
     ```
    - launch create_table.py
    - or set the path to the file in the SQL shell
