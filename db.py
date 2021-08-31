@@ -16,6 +16,7 @@ class UseDataBase:
             self.cursor = self.conn.cursor()
             return self.cursor
         except Error as err:
+            self.conn.rollback()
             raise DataBaseError(err)
 
     def __exit__(self, exc_type, exc_value, exc_trace):
