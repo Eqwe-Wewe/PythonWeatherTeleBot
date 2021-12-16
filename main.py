@@ -86,12 +86,13 @@ def help(message):
             '6) Бот поддерживает встроенный режим. Введи <yournameforthebot>'
             ' в любом чате и выбери команду для составления прогноза погоды.'
         ),
-        reply_markup=button(
-            text='Связаться с разработчиком',
-
-            # по желанию добавьте учетную запись
-            url='telegram.me/<yourrandomdeveloper>'
-        )
+        # добавьте по желанию
+##        reply_markup=button(
+##            text='Связаться с разработчиком',
+##
+##            
+##            url='telegram.me/<yourrandomdeveloper>'
+##        )
     )
 
 
@@ -843,15 +844,5 @@ def inline_mode(inline_query):
     )
 
 
-def main():
-    bot.polling(none_stop=True)
-
-
 if __name__ == '__main__':
-    try:
-        main()
-    except Exception as err:
-        dt = datetime.now()
-        dt = dt.strftime('%H:%M - %m.%d.%Y')
-        with open('report.txt', 'a') as file:
-            print(f'error: {err}, {dt}', file=file)
+    bot.polling(none_stop=True)

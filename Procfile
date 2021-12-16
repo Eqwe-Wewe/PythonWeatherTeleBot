@@ -1,0 +1,3 @@
+bot: python main.py
+
+
